@@ -197,7 +197,7 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: ServersTransport
 metadata:
-  name: skipverify
+  name: smallstep-trust
   namespace: smallstep
 spec:
   serverName: smallstep
@@ -212,7 +212,7 @@ metadata:
   namespace: smallstep
   annotations:
     traefik.ingress.kubernetes.io/service.serversscheme: https
-    traefik.ingress.kubernetes.io/service.serverstransport: smallstep-skipverify@kubernetescrd
+    traefik.ingress.kubernetes.io/service.serverstransport: smallstep-smallstep-trust@kubernetescrd
 spec:
   selector:
     app: smallstep
