@@ -70,6 +70,7 @@ data:
           --name=smallstep \
           --provisioner=admin \
           --dns=localhost \
+          --dns=smallstep \
           --dns=smallstep.smallstep \
           --address=:443 \
           --acme \
