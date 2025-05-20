@@ -26,10 +26,7 @@ spec:
   secretName: ca-secret
   secretTemplate:
     annotations:
-      reflector.v1.k8s.emberstack.com/reflection-allowed: "true" 
-      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "dynamicacme,nanomdm,smallstep"
-      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
-      reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "dynamicacme,nanomdm,smallstep"
+      replicator.v1.mittwald.de/replicate-to: "dynamicacme,nanomdm,smallstep"
 
 ---
 apiVersion: cert-manager.io/v1

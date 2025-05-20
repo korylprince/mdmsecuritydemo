@@ -8,10 +8,7 @@ spec:
 
   secretTemplate:
     annotations:
-      reflector.v1.k8s.emberstack.com/reflection-allowed: "true" 
-      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "dynamicacme,nanomdm,smallstep,webview"
-      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
-      reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "dynamicacme,nanomdm,smallstep,webview"
+      replicator.v1.mittwald.de/replicate-to: "dynamicacme,nanomdm,smallstep,webview"
 
   privateKey:
     algorithm: RSA
