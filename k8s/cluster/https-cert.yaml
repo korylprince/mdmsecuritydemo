@@ -1,0 +1,33 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ingress-tls
+  namespace: cert-manager
+spec:
+  secretName: ingress-tls
+
+  secretTemplate:
+    annotations:
+      reflector.v1.k8s.emberstack.com/reflection-allowed: "true" 
+      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "dynamicacme,nanomdm,smallstep,webview"
+      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+      reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "dynamicacme,nanomdm,smallstep,webview"
+
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  commonName: mycoolmdm.stream
+  dnsNames:
+    - mycoolmdm.stream
+    - mdm.mycoolmdm.stream
+    - registry.mycoolmdm.stream
+    - registry-internal.mycoolmdm.stream
+
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer

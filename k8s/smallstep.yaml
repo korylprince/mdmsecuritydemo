@@ -1,0 +1,246 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: smallstep
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: smallstep
+  namespace: smallstep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: provisioner-password
+  namespace: smallstep
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: webhook-tls
+  namespace: smallstep
+spec:
+  secretName: webhook-tls
+
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  commonName: localhost
+  dnsNames:
+    - localhost
+
+  issuerRef:
+    name: ca-issuer
+    kind: ClusterIssuer
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init
+  namespace: smallstep
+data:
+  init.sh: |
+    #!/bin/bash
+    set -euxo pipefail
+
+    if [ ! -f "${STEPPATH}/config/ca.json" ]; then
+        /usr/local/bin/step ca init \
+          --root=/etc/smallstep/ca.crt \
+          --key=/etc/smallstep/tls.key \
+          --deployment-type=standalone \
+          --remote-management \
+          --name=smallstep \
+          --provisioner=admin \
+          --dns=localhost \
+          --dns=smallstep.smallstep \
+          --address=:443 \
+          --acme \
+          --password-file=/etc/smallstep/passwords/provisioner-password
+
+      # start server for config changes
+      /usr/local/bin/step-ca /data/config/ca.json --password-file=/etc/smallstep/passwords/provisioner-password &
+      sleep 5
+
+      # configure acme device challenge
+      /usr/local/bin/step ca provisioner update acme \
+        --admin-subject=step --admin-provisioner=admin --admin-password-file=/etc/smallstep/passwords/provisioner-password \
+        --ca-url=https://localhost:443 --challenge=device-attest-01 --attestation-format=apple
+
+      # configure webhook
+      /usr/local/bin/step ca provisioner webhook add acme webhook \
+        --admin-subject=step --admin-provisioner=admin --admin-password-file=/etc/smallstep/passwords/provisioner-password \
+        --url 'https://localhost:8080/'
+    else
+      echo "config exists"
+    fi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smallstep
+  namespace: smallstep
+  labels:
+    app: smallstep
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smallstep
+  template:
+    metadata:
+      labels:
+        app: smallstep
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: smallstep
+        - name: ca
+          secret:
+            secretName: ca-secret
+            items:
+            - key: ca.crt
+              path: ca.crt
+            - key: tls.key
+              path: tls.key
+        - name: webhook-tls
+          secret:
+            secretName: webhook-tls
+            items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
+        - name: provisioner-password
+          secret:
+            secretName: provisioner-password
+            items:
+              - key: password
+                path: provisioner-password
+        - name: init
+          configMap:
+            name: init
+            items:
+              - key: init.sh
+                path: init.sh
+
+      initContainers:
+      - name: init
+        image: smallstep/step-ca:0.28.3
+        command:
+          - /bin/bash
+          - /init.sh
+        env:
+          - name: STEPPATH
+            value: /data
+        volumeMounts:
+          - name: "data"
+            mountPath: data
+          - name: "ca"
+            mountPath: /etc/smallstep
+          - name: "provisioner-password"
+            mountPath: /etc/smallstep/passwords
+          - name: init
+            mountPath: /init.sh
+            subPath: init.sh
+
+      containers:
+        - name: smallstep
+          image: smallstep/step-ca:0.28.3
+          command:
+            - "/usr/local/bin/step-ca"
+            - "/data/config/ca.json"
+            - "--password-file=/etc/smallstep/passwords/provisioner-password"
+          env:
+            - name: STEPPATH
+              value: /data
+          ports:
+            - containerPort: 443
+          volumeMounts:
+            - name: "data"
+              mountPath: /data
+            - name: "ca"
+              mountPath: /etc/smallstep
+            - name: "provisioner-password"
+              mountPath: /etc/smallstep/passwords
+
+        - name: webhook
+          image: registry-internal.mycoolmdm.stream/webhook:1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: "webhook-tls"
+              mountPath: /data
+
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: skipverify
+  namespace: smallstep
+spec:
+  serverName: smallstep
+  rootCAsSecrets:
+    - ca-secret
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smallstep
+  namespace: smallstep
+  annotations:
+    traefik.ingress.kubernetes.io/service.serversscheme: https
+    traefik.ingress.kubernetes.io/service.serverstransport: smallstep-skipverify@kubernetescrd
+spec:
+  selector:
+    app: smallstep
+  ports:
+    - protocol: TCP
+      port: 443
+      targetPort: 443
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  namespace: smallstep
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
+spec:
+  rules:
+  - host: "mycoolmdm.stream"
+    http:
+      paths:
+      - path: /acme/acme/
+        pathType: Prefix
+        backend:
+          service:
+            name: smallstep
+            port:
+              number: 443
+  tls:
+    - secretName: ingress-tls
+      hosts:
+        - mycoolmdm.stream

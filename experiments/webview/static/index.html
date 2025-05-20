@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <title>Basic HTML5 document</title>
+        <meta charset='utf-8'>
+    </head>
+    <body>
+        <button id="register">Register</button>
+        <button id="login">Login</button>
+        <script type="text/javascript">
+            const register = document.getElementById("register")
+            register.addEventListener("click", async () => {
+                const opts = await (await fetch("/users/123/registration?name=kory_prince&display_name=Kory Prince")).json()
+                const parsedOpts = PublicKeyCredential.parseCreationOptionsFromJSON(opts.publicKey)
+                const cred = await navigator.credentials.create({publicKey: parsedOpts})
+                const credJSON = cred.toJSON()
+                const resp = await fetch("/users/123/registration", {   
+                    method: "POST",
+                    body: JSON.stringify(credJSON),
+                })
+                console.log(resp)
+            })
+
+            const login = document.getElementById("login")
+            login.addEventListener("click", async () => {
+                const opts = await (await fetch("/users/123/login")).json()
+                const parsedOpts = PublicKeyCredential.parseRequestOptionsFromJSON(opts.publicKey)
+                const cred = await navigator.credentials.get({publicKey: parsedOpts})
+                const credJSON = cred.toJSON()
+                const resp = await fetch("/users/123/login", {   
+                    method: "POST",
+                    body: JSON.stringify(credJSON),
+                })
+                console.log(resp)
+            })
+        </script>
+    </body>
+</html>

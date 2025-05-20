@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nanomdm
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nanomdm
+  namespace: nanomdm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-key
+  namespace: nanomdm
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nanomdm
+  namespace: nanomdm
+  labels:
+    app: nanomdm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nanomdm
+  template:
+    metadata:
+      labels:
+        app: nanomdm
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nanomdm
+        - name: ca
+          secret:
+            secretName: ca-secret
+            items:
+            - key: ca.crt
+              path: ca.crt
+      containers:
+      - name: nanomdm
+        image: ghcr.io/micromdm/nanomdm:sha-07ea751
+        args:
+          - "-ca"
+          - /etc/nanomdm/ca.crt
+          - "-storage"
+          - filekv
+          - "-storage-dsn"
+          - "/data"
+          - "-webhook-url"
+          - "http://webhook:8080"
+          - "-api"
+          - "$(API_KEY)"
+        ports:
+        - containerPort: 9000
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-key
+              key: password
+        volumeMounts:
+        - name: "data"
+          mountPath: data
+        - name: "ca"
+          mountPath: /etc/nanomdm
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nanomdm
+  namespace: nanomdm
+spec:
+  selector:
+    app: nanomdm
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  namespace: nanomdm
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
+spec:
+  rules:
+  - host: "mycoolmdm.stream"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nanomdm
+            port:
+              number: 80
+  tls:
+    - secretName: ingress-tls
+      hosts:
+        - mycoolmdm.stream

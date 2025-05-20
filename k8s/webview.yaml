@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: webview
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: user-store
+  namespace: webview
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webview
+  namespace: webview
+  labels:
+    app: webview
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webview
+  template:
+    metadata:
+      labels:
+        app: webview
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: user-store
+      containers:
+      - name: webview
+        image: registry-internal.mycoolmdm.stream/webview:1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: "data"
+          mountPath: data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webview
+  namespace: webview
+spec:
+  selector:
+    app: webview
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  namespace: webview
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
+spec:
+  rules:
+  - host: "mycoolmdm.stream"
+    http:
+      paths:
+      - path: /ui
+        pathType: Prefix
+        backend:
+          service:
+            name: webview
+            port:
+              number: 80
+      - path: /users
+        pathType: Prefix
+        backend:
+          service:
+            name: webview
+            port:
+              number: 80
+  tls:
+    - secretName: ingress-tls
+      hosts:
+        - mycoolmdm.stream

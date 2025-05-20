@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dynamicacme
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-key
+  namespace: dynamicacme
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dynamicacme
+  namespace: dynamicacme
+  labels:
+    app: dynamicacme
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dynamicacme
+  template:
+    metadata:
+      labels:
+        app: dynamicacme
+    spec:
+      volumes:
+        - name: ca
+          secret:
+            secretName: ca-secret
+            items:
+            - key: ca.crt
+              path: ca.crt
+      containers:
+      - name: dynamicacme
+        image: registry-internal.mycoolmdm.stream/dynamicacme:1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-key
+              key: password
+        - name: CA_PATH
+          value: "/etc/dynamicacme/ca.crt"
+        volumeMounts:
+        - name: "ca"
+          mountPath: /etc/dynamicacme
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dynamicacme
+  namespace: dynamicacme
+spec:
+  selector:
+    app: dynamicacme
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  namespace: dynamicacme
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
+spec:
+  rules:
+  - host: "mycoolmdm.stream"
+    http:
+      paths:
+      - path: /acme/
+        pathType: Prefix
+        backend:
+          service:
+            name: dynamicacme
+            port:
+              number: 80
+      - path: /users
+        pathType: Prefix
+        backend:
+          service:
+            name: dynamicacme
+            port:
+              number: 80
+  tls:
+    - secretName: ingress-tls
+      hosts:
+        - mycoolmdm.stream
