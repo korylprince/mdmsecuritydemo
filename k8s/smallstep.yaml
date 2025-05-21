@@ -27,30 +27,6 @@ metadata:
     secret-generator.v1.mittwald.de/autogenerate: password
 
 ---
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: webhook-tls
-  namespace: smallstep
-spec:
-  secretName: webhook-tls
-
-  privateKey:
-    algorithm: ECDSA
-    size: 256
-
-  duration: 2160h # 90d
-  renewBefore: 360h # 15d
-
-  commonName: localhost
-  dnsNames:
-    - localhost
-
-  issuerRef:
-    name: ca-issuer
-    kind: ClusterIssuer
-
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -88,7 +64,8 @@ data:
       # configure webhook
       /usr/local/bin/step ca provisioner webhook add acme webhook \
         --admin-subject=step --admin-provisioner=admin --admin-password-file=/etc/smallstep/passwords/provisioner-password \
-        --url 'https://localhost:8080/'
+        --bearer-token-file /etc/smallstep/keys/webhook-key \
+        --url 'https://dynamicacme.dynamicacme/webhook'
     else
       echo "config exists"
     fi
@@ -123,20 +100,18 @@ spec:
               path: ca.crt
             - key: tls.key
               path: tls.key
-        - name: webhook-tls
-          secret:
-            secretName: webhook-tls
-            items:
-            - key: tls.crt
-              path: tls.crt
-            - key: tls.key
-              path: tls.key
         - name: provisioner-password
           secret:
             secretName: provisioner-password
             items:
               - key: password
                 path: provisioner-password
+        - name: webhook-key
+          secret:
+            secretName: webhook-key
+            items:
+              - key: password
+                path: webhook-key
         - name: init
           configMap:
             name: init
@@ -160,6 +135,8 @@ spec:
             mountPath: /etc/smallstep
           - name: "provisioner-password"
             mountPath: /etc/smallstep/passwords
+          - name: "webhook-key"
+            mountPath: /etc/smallstep/keys
           - name: init
             mountPath: /init.sh
             subPath: init.sh
@@ -183,15 +160,6 @@ spec:
               mountPath: /etc/smallstep
             - name: "provisioner-password"
               mountPath: /etc/smallstep/passwords
-
-        - name: webhook
-          image: registry-internal.mycoolmdm.stream/webhook:1
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 8080
-          volumeMounts:
-            - name: "webhook-tls"
-              mountPath: /data
 
 ---
 apiVersion: traefik.io/v1alpha1

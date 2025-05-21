@@ -3,6 +3,7 @@ module github.com/korylprince/mdmsecuritydemo/dynamicacme
 go 1.24.3
 
 require (
+	github.com/jellydator/ttlcache/v3 v3.3.0
 	github.com/samber/slog-http v1.7.0
 	github.com/smallstep/certificates v0.28.3
 	go.step.sm/crypto v0.64.0
@@ -26,6 +27,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 )

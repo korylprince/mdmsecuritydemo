@@ -8,7 +8,7 @@ spec:
 
   secretTemplate:
     annotations:
-      replicator.v1.mittwald.de/replicate-to: "dynamicacme,nanomdm,smallstep,webview"
+      replicator.v1.mittwald.de/replicate-to: "nanomdm,smallstep,webview"
 
   privateKey:
     algorithm: RSA
