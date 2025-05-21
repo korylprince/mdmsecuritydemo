@@ -8,7 +8,7 @@ spec:
 
   secretTemplate:
     annotations:
-      replicator.v1.mittwald.de/replicate-to: "nanomdm,smallstep,webview"
+      replicator.v1.mittwald.de/replicate-to: "dashboard,nanomdm,smallstep,webview"
 
   privateKey:
     algorithm: RSA
@@ -24,6 +24,7 @@ spec:
     - mdm.mycoolmdm.stream
     - registry.mycoolmdm.stream
     - registry-internal.mycoolmdm.stream
+    - dashboard.mycoolmdm.stream
 
   issuerRef:
     name: letsencrypt-prod

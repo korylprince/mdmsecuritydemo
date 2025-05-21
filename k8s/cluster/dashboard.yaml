@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dashboard
+
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: dashboard
+  namespace: kube-system
+spec:
+  chart: https://github.com/kubernetes/dashboard/releases/download/kubernetes-dashboard-7.12.0/kubernetes-dashboard-7.12.0.tgz
+  targetNamespace: dashboard
+  set:
+    kong.proxy.http.enabled: "true"
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  namespace: dashboard
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
+spec:
+  rules:
+  - host: "dashboard.mycoolmdm.stream"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dashboard-kong-proxy
+            port:
+              number: 80
+  tls:
+    - secretName: ingress-tls
+      hosts:
+        - dashboard.mycoolmdm.stream
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin
+  namespace: dashboard
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin
+  namespace: dashboard

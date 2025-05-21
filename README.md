@@ -27,6 +27,8 @@ This demo is running on a single-node [k3s](https://k3s.io/) cluster. Follow the
 1. Verify kubectl connectivity:
     - `kubectl get pods -A` should return several running pods
 
+TBD: DNS records
+
 ## Cluster dependencies
 
 Install these dependencies on your new cluster so you can deploy the demo in the next step.
@@ -48,10 +50,16 @@ Install each dependency in order using `kubectl apply -f path/to/file.yaml`
     - Requests a certificate from Let's Encrypt that is shared with other services
     - To use Let's Encrypt automatic certificates, your k8s cluster must have a public IP, and you must have a domain with DNS pointed at the server
         - If you don't have a server with a public IP, using the [DNS-01 challenge](https://cert-manager.io/docs/configuration/acme/dns01/) might be an alternative
-1. [registry-password.yaml](./k8s/cluster/registry-password.yaml)
+1. Optional - [registry-password.yaml](./k8s/cluster/registry-password.yaml)
     - Generates basic auth for a cluster-hosted container registry
-1. [registry.yaml](./k8s/cluster/replicatoryaml)
+1. Optional - [registry.yaml](./k8s/cluster/replicatoryaml)
     - Installs a container registry to the cluster for private container image hosting
+1. Optional - [dashboard.yaml](./k8s/cluster/dashboard.yaml)
+    - Installs [Kubernetes Dashboard](https://github.com/kubernetes/dashboard)
+    - To access:
+        - Run `kubectl -n dashboard create token admin` and copy token
+        - Visit https://dashboard.<cluster.tld>
+        - Enter token in login box
 
 ## Build and push containers
 
