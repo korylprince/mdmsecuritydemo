@@ -26,7 +26,7 @@ spec:
   secretName: ca-secret
   secretTemplate:
     annotations:
-      replicator.v1.mittwald.de/replicate-to: "dynamicacme,nanomdm,smallstep"
+      replicator.v1.mittwald.de/replicate-to: "dynamicacme,enroll,nanomdm,smallstep"
 
 ---
 apiVersion: cert-manager.io/v1

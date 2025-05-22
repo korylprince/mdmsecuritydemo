@@ -11,6 +11,7 @@ metadata:
   namespace: dynamicacme
   annotations:
     secret-generator.v1.mittwald.de/autogenerate: password
+    replicator.v1.mittwald.de/replicate-to: "enroll"
 
 ---
 apiVersion: v1
@@ -80,6 +81,8 @@ spec:
         ports:
         - containerPort: 443
         env:
+        - name: DEBUG_KEY
+          value: "test"
         - name: API_KEY
           valueFrom:
             secretKeyRef:

@@ -12,6 +12,7 @@ This service expects the following environment variables to be configured:
 - `$WEBHOOK_KEY`: The bearer token that should be passed to the /webhook endpoint
 - `$TLS_CERT_PATH`: The path to the TLS certificate for the service
 - `$TLS_KEY_PATH`: The path to the matching TLS key for the service
+- `$DEBUG_KEY`: A static profile key that will always be accepted by the webhook if set
 
 Note: the webhook must listen on HTTPS using a cert signed by step-ca's root CA.
 
@@ -43,7 +44,7 @@ Authorization: Bearer $API_KEY
 {"key":"amWtEJljTRdpFc29Ej2CtjX0ch_BQN07WXmb4nWRO08"}
 ```
 
-This returned key would then be embedded in a dynamically generated ACME payload, Subject 2.5.4.45 field:
+This returned key would then be embedded in a dynamically generated ACME payload, Subject 2.5.4.35 field:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -70,7 +71,7 @@ This returned key would then be embedded in a dynamically generated ACME payload
                 <array>
                     <array>
                         <!-- set dynamic key -->
-                        <string>2.5.4.45</string>
+                        <string>2.5.4.35</string>
                         <string>amWtEJljTRdpFc29Ej2CtjX0ch_BQN07WXmb4nWRO08</string>
                     </array>
                 </array>

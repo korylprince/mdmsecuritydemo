@@ -26,6 +26,27 @@ metadata:
   annotations:
     secret-generator.v1.mittwald.de/autogenerate: password
 
+# FIXME: automate this
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: intermediate
+  namespace: nanomdm
+data:
+  intermediate.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIBtjCCAV2gAwIBAgIQPOzICGysIwn2atFyoGFWpTAKBggqhkjOPQQDAjAbMRkw
+    FwYDVQQDExBteWNvb2xtZG0uc3RyZWFtMB4XDTI1MDUyMjA2NDk0N1oXDTM1MDUy
+    MDA2NDk0N1owODESMBAGA1UEChMJc21hbGxzdGVwMSIwIAYDVQQDExlzbWFsbHN0
+    ZXAgSW50ZXJtZWRpYXRlIENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEjgpM
+    L/LHf90O+ZN/G+bwhU8DUtoWibcJR0sMBGKK/0L3YZOPL5HD7DBdEImCUeReI02l
+    8MzP67i9Wzke6V/2KKNmMGQwDgYDVR0PAQH/BAQDAgEGMBIGA1UdEwEB/wQIMAYB
+    Af8CAQAwHQYDVR0OBBYEFGP0Qqp+bv/tFVr7jARTQExjJRXyMB8GA1UdIwQYMBaA
+    FFKLu7Vciwd5bHjrvj/wDALHakpxMAoGCCqGSM49BAMCA0cAMEQCIDgdY25b4uLt
+    yNjbUwAxduZ45uxLw5sXnCObOWyYntsEAiBiLO5zIQUUPC5cxBZ43adIrzzGQ+rP
+    RQv1Nqkjd7RMMg==
+    -----END CERTIFICATE-----
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -54,12 +75,20 @@ spec:
             items:
             - key: ca.crt
               path: ca.crt
+        - name: intermediate
+          configMap:
+            name: intermediate
+            items:
+              - key: intermediate.crt
+                path: intermediate.crt
       containers:
       - name: nanomdm
         image: ghcr.io/micromdm/nanomdm:sha-07ea751
         args:
           - "-ca"
           - /etc/nanomdm/ca.crt
+          - "-intermediate"
+          - /etc/nanomdm/intermediate/intermediate.crt
           - "-storage"
           - filekv
           - "-storage-dsn"
@@ -81,6 +110,8 @@ spec:
           mountPath: data
         - name: "ca"
           mountPath: /etc/nanomdm
+        - name: "intermediate"
+          mountPath: /etc/nanomdm/intermediate
 
 ---
 apiVersion: v1

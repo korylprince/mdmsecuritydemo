@@ -30,6 +30,24 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  name: template
+  namespace: smallstep
+data:
+  template.json: |
+    {
+        "subject": {{ toJson .Subject }},
+    {{- if typeIs "*rsa.PublicKey" .Insecure.CR.PublicKey }}
+        "keyUsage": ["keyEncipherment", "digitalSignature"],
+    {{- else }}
+        "keyUsage": ["digitalSignature"],
+    {{- end }}
+        "extKeyUsage": ["serverAuth", "clientAuth"]
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
   name: init
   namespace: smallstep
 data:
@@ -59,7 +77,8 @@ data:
       # configure acme device challenge
       /usr/local/bin/step ca provisioner update acme \
         --admin-subject=step --admin-provisioner=admin --admin-password-file=/etc/smallstep/passwords/provisioner-password \
-        --ca-url=https://localhost:443 --challenge=device-attest-01 --attestation-format=apple
+        --ca-url=https://localhost:443 --challenge=device-attest-01 --attestation-format=apple \
+        --x509-template=/etc/smallstep/templates/template.json
 
       # configure webhook
       /usr/local/bin/step ca provisioner webhook add acme webhook \
@@ -118,6 +137,12 @@ spec:
             items:
               - key: init.sh
                 path: init.sh
+        - name: template
+          configMap:
+            name: template
+            items:
+              - key: template.json
+                path: template.json
 
       initContainers:
       - name: init
@@ -135,6 +160,8 @@ spec:
             mountPath: /etc/smallstep
           - name: "provisioner-password"
             mountPath: /etc/smallstep/passwords
+          - name: "template"
+            mountPath: /etc/smallstep/templates
           - name: "webhook-key"
             mountPath: /etc/smallstep/keys
           - name: init
@@ -160,6 +187,8 @@ spec:
               mountPath: /etc/smallstep
             - name: "provisioner-password"
               mountPath: /etc/smallstep/passwords
+            - name: "template"
+              mountPath: /etc/smallstep/templates
 
 ---
 apiVersion: traefik.io/v1alpha1

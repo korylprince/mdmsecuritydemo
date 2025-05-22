@@ -18,12 +18,13 @@ import (
 	"go.step.sm/crypto/x509util"
 )
 
-// this is the OID for uniqueIdentifier but really it's just an arbitrary ID
-var uniqueIDOID = x509util.ObjectIdentifier{2, 5, 4, 45}
+// this is the OID for userPassword but really it's just an arbitrary ID
+var uniqueIDOID = x509util.ObjectIdentifier{2, 5, 4, 35}
 
 type Server struct {
 	apiKey     []byte
 	webhookKey []byte
+	debugKey   string
 	keys       *ttlcache.Cache[string, struct{}]
 	logger     *slog.Logger
 }
@@ -39,6 +40,12 @@ func WithAPIKey(key string) Option {
 func WithWebhookKey(key string) Option {
 	return func(s *Server) {
 		s.webhookKey = []byte("Bearer " + key)
+	}
+}
+
+func WithDebugKey(key string) Option {
+	return func(s *Server) {
+		s.debugKey = key
 	}
 }
 
@@ -151,6 +158,11 @@ func (s *Server) AuthRequest(w http.ResponseWriter, r *http.Request) {
 
 	keyStr, ok := key.(string)
 	if !ok || !s.keys.Has(keyStr) {
+		// test debug key if it's set
+		if s.debugKey != "" && keyStr == s.debugKey {
+			allow = true
+			return
+		}
 		sloghttp.AddCustomAttributes(r, slog.String("error", fmt.Sprintf("invalid key: %v", key)))
 		return
 	}
@@ -166,6 +178,7 @@ func run() error {
 	s := NewServer(
 		WithAPIKey(os.Getenv("API_KEY")),
 		WithWebhookKey(os.Getenv("WEBHOOK_KEY")),
+		WithDebugKey(os.Getenv("DEBUG_KEY")),
 		WithLogger(slog.New(slog.NewJSONHandler(os.Stdout, nil))),
 	)
 
