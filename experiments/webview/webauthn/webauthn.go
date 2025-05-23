@@ -93,10 +93,10 @@ func New(opts ...Option) (*WebAuthn, error) {
 
 func (wa *WebAuthn) Router() http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("GET /users/{USERID}/registration{$}", wa.handler(wa.BeginRegistration))
-	mux.Handle("POST /users/{USERID}/registration{$}", wa.handler(wa.FinishRegistration))
-	mux.Handle("GET /users/{USERID}/login{$}", wa.handler(wa.BeginLogin))
-	mux.Handle("POST /users/{USERID}/login{$}", wa.handler(wa.FinishLogin))
+	mux.Handle("GET /users/{USERID}/registration", wa.handler(wa.BeginRegistration))
+	mux.Handle("POST /users/{USERID}/registration", wa.handler(wa.FinishRegistration))
+	mux.Handle("GET /users/{USERID}/login", wa.handler(wa.BeginLogin))
+	mux.Handle("POST /users/{USERID}/login", wa.handler(wa.FinishLogin))
 
 	return sloghttp.New(wa.logger)(mux)
 }
