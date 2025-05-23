@@ -70,7 +70,7 @@ We deployed a private container registry in the cluster above so we can build an
 Before deploying the demo services, build and push these images: (FIXME: add instructions for all services).
 
 1. Sign into container registry
-    - `docker login`
+    - `docker login registry-<cluster.tld>`
         - username: admin
         - password: `kubectl get -n registry secrets/basic-auth --template='{{.data.password | base64decode}}'`
 1. Build container images
