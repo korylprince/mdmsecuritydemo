@@ -35,7 +35,6 @@ Install these dependencies on your new cluster so you can deploy the demo in the
 
 Install each dependency in order using `kubectl apply -f path/to/file.yaml`
 
-// cert-manager.yaml       https-cert.yaml         lb.yaml                 letsencrypt-issuer.yaml password-generator.yaml registry-password.yaml  registry.yaml           replicator.yaml
 1. [password-generator.yaml](./k8s/cluster/password-generator.yaml)
     - Installs [a k8s operator](https://github.com/mittwald/kubernetes-secret-generator) that generates secrets (passwords, basic auth credentials, etc)
 1. [replicator.yaml](./k8s/cluster/replicatoryaml)
@@ -82,6 +81,15 @@ Before deploying the demo services, build and push these images: (FIXME: add ins
 1. Use container image
     - Configure the image as `registry-internal.<cluster.tld>/dynamicacme:1` in the container spec
     - `registry-internal.<cluster.tld>` requires no auth and can be accessed only from the cluster host itself
+
+If you're deploying a new image to an existing container, you must do one of the following to have the container use the new image:
+
+- Use a different image tag, update the yaml file, and run `kubectl apply -f <yaml>`
+- If you use the same image tag as before, you'll need to run `kubectl rollout restart -n <namespace> deploy/<deploy name>`
+    - This requires that ImagePullPolicy is set to Always on the container spec. Otherwise it won't check if the image changed
+- Delete the deploy and reapply the yaml:
+    - `kubectl delete deploy -n <namespace> <deploy name>`
+    - `kubectl apply -f file.yaml`
 
 ## Deploy services
 
