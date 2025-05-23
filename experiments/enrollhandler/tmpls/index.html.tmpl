@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <title>MDM Enrollment</title>
+        <meta charset='utf-8'>
+    </head>
+    <body>
+        <div>
+            <div>Serial Number: {{.MachineInfo.Serial}}</div>
+            <div>Product: {{.MachineInfo.Product}}</div>
+            <div>OS Version: {{.MachineInfo.OSVersion}}</div>
+        </div>
+        <div>
+            <a href="/mdm/enroll/finish">Complete Enrollment</a>
+        </div>
+    </body>
+</html>

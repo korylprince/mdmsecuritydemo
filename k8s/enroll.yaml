@@ -4,6 +4,24 @@ metadata:
   name: enroll
 
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: session-auth-key
+  namespace: enroll
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: session-enc-key
+  namespace: enroll
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -35,6 +53,16 @@ spec:
         ports:
         - containerPort: 8080
         env:
+        - name: SESSION_AUTH_KEY
+          valueFrom:
+            secretKeyRef:
+              name: session-auth-key
+              key: password
+        - name: SESSION_ENC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: session-enc-key
+              key: password
         - name: ALLOW_NO_MACHINEINFO
           value: "true"
         - name: CA_PATH
@@ -84,7 +112,7 @@ spec:
     http:
       paths:
       - path: /mdm/enroll
-        pathType: Exact
+        pathType: Prefix
         backend:
           service:
             name: enroll
