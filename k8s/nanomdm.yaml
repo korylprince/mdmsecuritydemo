@@ -26,27 +26,33 @@ metadata:
   annotations:
     secret-generator.v1.mittwald.de/autogenerate: password
 
-# FIXME: automate this
 ---
-apiVersion: v1
-kind: ConfigMap
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
 metadata:
-  name: intermediate
   namespace: nanomdm
-data:
-  intermediate.crt: |
-    -----BEGIN CERTIFICATE-----
-    MIIBtjCCAV2gAwIBAgIQPOzICGysIwn2atFyoGFWpTAKBggqhkjOPQQDAjAbMRkw
-    FwYDVQQDExBteWNvb2xtZG0uc3RyZWFtMB4XDTI1MDUyMjA2NDk0N1oXDTM1MDUy
-    MDA2NDk0N1owODESMBAGA1UEChMJc21hbGxzdGVwMSIwIAYDVQQDExlzbWFsbHN0
-    ZXAgSW50ZXJtZWRpYXRlIENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEjgpM
-    L/LHf90O+ZN/G+bwhU8DUtoWibcJR0sMBGKK/0L3YZOPL5HD7DBdEImCUeReI02l
-    8MzP67i9Wzke6V/2KKNmMGQwDgYDVR0PAQH/BAQDAgEGMBIGA1UdEwEB/wQIMAYB
-    Af8CAQAwHQYDVR0OBBYEFGP0Qqp+bv/tFVr7jARTQExjJRXyMB8GA1UdIwQYMBaA
-    FFKLu7Vciwd5bHjrvj/wDALHakpxMAoGCCqGSM49BAMCA0cAMEQCIDgdY25b4uLt
-    yNjbUwAxduZ45uxLw5sXnCObOWyYntsEAiBiLO5zIQUUPC5cxBZ43adIrzzGQ+rP
-    RQv1Nqkjd7RMMg==
-    -----END CERTIFICATE-----
+  name: secret-updater
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["intermediate-ca"]
+  verbs: ["create", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: smallstep-secret-updater
+  namespace: nanomdm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: secret-updater
+subjects:
+- kind: ServiceAccount
+  name: smallstep
+  namespace: smallstep
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -75,9 +81,9 @@ spec:
             items:
             - key: ca.crt
               path: ca.crt
-        - name: intermediate
+        - name: intermediate-ca
           configMap:
-            name: intermediate
+            name: intermediate-ca
             items:
               - key: intermediate.crt
                 path: intermediate.crt
@@ -106,11 +112,11 @@ spec:
               name: api-key
               key: password
         volumeMounts:
-        - name: "data"
-          mountPath: data
-        - name: "ca"
+        - name: data
+          mountPath: /data
+        - name: ca
           mountPath: /etc/nanomdm
-        - name: "intermediate"
+        - name: intermediate-ca
           mountPath: /etc/nanomdm/intermediate
 
 ---

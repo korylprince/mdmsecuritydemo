@@ -19,6 +19,13 @@ spec:
 
 ---
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: smallstep
+  namespace: smallstep
+
+---
+apiVersion: v1
 kind: Secret
 metadata:
   name: provisioner-password
@@ -85,6 +92,25 @@ data:
         --admin-subject=step --admin-provisioner=admin --admin-password-file=/etc/smallstep/passwords/provisioner-password \
         --bearer-token-file /etc/smallstep/keys/webhook-key \
         --url 'https://dynamicacme.dynamicacme/webhook'
+
+      # create config map from intermediate for nanomdm
+      cat > /tmp/intermediate.yaml <<EOF
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: intermediate-ca
+        namespace: nanomdm
+      binaryData:
+        intermediate.crt: "$(cat /data/certs/intermediate_ca.crt | base64 -w 0)"
+    EOF
+
+      curl --cacert /run/secrets/kubernetes.io/serviceaccount/ca.crt \
+        -X PATCH \
+        -H "Authorization: Bearer $(cat /run/secrets/kubernetes.io/serviceaccount/token)" \
+        -H "Content-Type: application/apply-patch+yaml" \
+        --data-binary @/tmp/intermediate.yaml \
+        https://kubernetes.default.svc/api/v1/namespaces/nanomdm/configmaps/intermediate-ca?fieldManager=curl
+
     else
       echo "config exists"
     fi
@@ -107,6 +133,7 @@ spec:
       labels:
         app: smallstep
     spec:
+      serviceAccountName: smallstep
       volumes:
         - name: data
           persistentVolumeClaim:
