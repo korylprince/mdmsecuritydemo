@@ -1,57 +1,38 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang='en'>
     <head>
         <title>Basic HTML5 document</title>
-        <meta charset="utf-8">
+        <meta charset='utf-8'>
     </head>
     <body>
         <button id="register">Register</button>
         <button id="login">Login</button>
-
         <script type="text/javascript">
-        const register = document.getElementById("register")
-        register.addEventListener("click", async () => {
-            const opts = await (await fetch("/users/123/registration?name=kory_prince&display_name=Kory Prince")).json()
-            const parsedOpts = PublicKeyCredential.parseCreationOptionsFromJSON(opts.publicKey)
-            const cred = await navigator.credentials.create({publicKey: parsedOpts})
-            const credJSON = cred.toJSON()
-            const resp = await fetch("/users/123/registration", {   
-                method: "POST",
-                body: JSON.stringify(credJSON),
+            const register = document.getElementById("register")
+            register.addEventListener("click", async () => {
+                const opts = await (await fetch("/users/123/registration?name=kory_prince&display_name=Kory Prince")).json()
+                const parsedOpts = PublicKeyCredential.parseCreationOptionsFromJSON(opts.publicKey)
+                const cred = await navigator.credentials.create({publicKey: parsedOpts})
+                const credJSON = cred.toJSON()
+                const resp = await fetch("/users/123/registration", {   
+                    method: "POST",
+                    body: JSON.stringify(credJSON),
+                })
+                console.log(resp)
             })
-            console.log(resp)
-        })
 
-        // the Safari webview doesn't support PublicKeyCredential.parseRequestOptionsFromJSON
-        // or Uint8Array.fromBase64, so we have to convert base64 text to an ArrayBuffer ourselves
-        function base64ToArrayBuffer(base64) {
-            const binaryString = atob(base64.replace(/-/g, "+").replace(/_/g, "/"))
-
-            const length = binaryString.length
-            const bytes = new Uint8Array(length)
-
-            for (let i = 0; i < length; i++) {
-                bytes[i] = binaryString.charCodeAt(i)
-            }
-
-            return bytes.buffer
-        }
-
-        const login = document.getElementById("login")
-        login.addEventListener("click", async () => {
-            const loginResp = await fetch("/users/123/login")
-            const opts = (await (loginResp).json()).publicKey
-
-            opts.challenge = base64ToArrayBuffer(opts.challenge)
-            opts.allowCredentials.forEach((cred, idx) => opts.allowCredentials[idx].id = base64ToArrayBuffer(opts.allowCredentials[idx].id))
-
-            const cred = await navigator.credentials.get({publicKey: opts})
-
-            const resp = await fetch("/users/123/login", {
-                method: "POST",
-                body: JSON.stringify(cred),
+            const login = document.getElementById("login")
+            login.addEventListener("click", async () => {
+                const opts = await (await fetch("/users/123/login")).json()
+                const parsedOpts = PublicKeyCredential.parseRequestOptionsFromJSON(opts.publicKey)
+                const cred = await navigator.credentials.get({publicKey: parsedOpts})
+                const credJSON = cred.toJSON()
+                const resp = await fetch("/users/123/login", {   
+                    method: "POST",
+                    body: JSON.stringify(credJSON),
+                })
+                console.log(resp)
             })
-        })
         </script>
     </body>
 </html>
