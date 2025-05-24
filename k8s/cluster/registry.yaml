@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   name: registry
 
+# create persistent volume for registry storage
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -17,6 +18,7 @@ spec:
     requests:
       storage: 10Gi
 
+# create basic auth middleware for registry
 ---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
@@ -27,6 +29,7 @@ spec:
   basicAuth:
     secret: basic-auth
 
+# install registry
 ---
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
@@ -42,6 +45,7 @@ spec:
       deleteEnabled: true
       existingClaim: registry
 
+# add external ingress that requires basic auth
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -67,6 +71,7 @@ spec:
       hosts:
         - registry.mycoolmdm.stream
 
+# add internal ingress that doesn't require auth
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

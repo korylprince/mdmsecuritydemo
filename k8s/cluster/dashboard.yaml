@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   name: dashboard
 
+# install kubernetes dashboard
 ---
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
@@ -40,6 +41,7 @@ spec:
       hosts:
         - dashboard.mycoolmdm.stream
 
+# create service account for accessing dashboard
 ---
 apiVersion: v1
 kind: ServiceAccount

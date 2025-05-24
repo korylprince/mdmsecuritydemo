@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   name: cert-manager
 
+# install cert-manager to manage certs
 ---
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
