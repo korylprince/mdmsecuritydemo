@@ -104,7 +104,7 @@ spec:
           - "-storage-dsn"
           - "/data"
           - "-webhook-url"
-          - "http://webhook:8080"
+          - "http://webhook.nanomdm"
           - "-api"
           - "$(API_KEY)"
         ports:
@@ -159,8 +159,11 @@ spec:
       containers:
       - name: webhook
         image: registry-internal.mycoolmdm.stream/nanowebhook:1
+        imagePullPolicy: Always
+        # required for logging to work properly with flask
+        tty: true
         ports:
-        - containerPort: 9000
+        - containerPort: 8080
 
 ---
 apiVersion: v1
