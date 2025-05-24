@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   name: dynamicacme
 
+# generate API secrets
 ---
 apiVersion: v1
 kind: Secret
@@ -23,6 +24,8 @@ metadata:
     secret-generator.v1.mittwald.de/autogenerate: password
     replicator.v1.mittwald.de/replicate-to: "smallstep"
 
+# create a certificate signed by our CA for the service
+# We need this as smallstep requires webhooks to have a TLS cert signed by its CA
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -81,8 +84,6 @@ spec:
         ports:
         - containerPort: 443
         env:
-        - name: DEBUG_KEY
-          value: "test"
         - name: API_KEY
           valueFrom:
             secretKeyRef:

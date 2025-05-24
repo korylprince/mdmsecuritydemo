@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   name: enroll
 
+# generate API secrets
 ---
 apiVersion: v1
 kind: Secret
@@ -63,8 +64,10 @@ spec:
             secretKeyRef:
               name: session-enc-key
               key: password
+        # allow requests that don't include signed machine info
         - name: ALLOW_NO_MACHINEINFO
           value: "true"
+
         - name: CA_PATH
           value: "/etc/enroll/ca.crt"
         - name: DYNAMIC_API_URL
@@ -74,6 +77,7 @@ spec:
             secretKeyRef:
               name: api-key
               key: password
+
         - name: MDM_URL
           value: "https://mycoolmdm.stream/mdm"
         - name: APNS_TOPIC
