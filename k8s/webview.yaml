@@ -41,7 +41,7 @@ spec:
             claimName: user-store
       containers:
       - name: webview
-        image: registry-internal.mycoolmdm.stream/webview:1
+        image: registry-internal.mycoolmdm.stream/webview:2.2
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

@@ -175,13 +175,46 @@ func (s *Server) LoginHandler() http.Handler {
 	})
 }
 
+type OSUpdateRequired struct {
+	// Code is always "com.apple.softwareupdate.required"
+	Code string `json:"code"`
+	// Description is used for logging purposes
+	Description string `json:"description,omitempty"`
+	// Message may be displayed to the user, but this doesn't seem to ever happen on macOS
+	Message string        `json:"message,omitempty"`
+	Details *ErrorDetails `json:"details"`
+}
+
+type ErrorDetails struct {
+	OSVersion    string `json:"OSVersion"`
+	BuildVersion string `json:"BuildVersion"`
+}
+
 func (s *Server) SoftwareUpdateHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO: implement forced update error
 		// documented here: https://github.com/apple/device-management/blob/release/mdm/errors/softwareupdate.required.yaml
 		// and here: https://developer.apple.com/documentation/devicemanagement/errorcodesoftwareupdaterequired
 		// basically return HTTP 403 with the json body
 		// See ergo/mdmenroll for an example of this
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden) // 403
+
+		OSUpdateRequired := &OSUpdateRequired{
+			Code:        "com.apple.softwareupdate.required",
+			Description: "Device requires a software update before enrollment.",
+			Message:     "A software update is required to continue.",
+			Details: &ErrorDetails{
+				OSVersion: "15.5.0",
+			},
+		}
+
+		if err := json.NewEncoder(w).Encode(OSUpdateRequired); err != nil {
+			sloghttp.AddCustomAttributes(r, slog.String("error", fmt.Sprintf("could not encode OSUpdateRequired response: %v", err)))
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		sloghttp.AddCustomAttributes(r, slog.Any("os_update_required", OSUpdateRequired))
 
 		// TODO: if we have time, implement basic GDMF API integration
 	})
