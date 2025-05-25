@@ -20,8 +20,11 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/korylprince/dep-webview-oidc/header"
 	"github.com/korylprince/mdmsecuritydemo/enrollhandler/machineinfo"
+	"github.com/korylprince/mdmsecuritydemo/enrollhandler/webauthn"
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/crypto/argon2"
+
+	gowebauthn "github.com/go-webauthn/webauthn/webauthn"
 )
 
 //go:embed static/*
@@ -129,6 +132,32 @@ func NewServer(opts ...Option) *Server {
 }
 
 func (s *Server) Router() (http.Handler, error) {
+	// FIXME: read from env var
+	store, err := webauthn.NewFileUserStore("/data")
+	if err != nil {
+		return nil, fmt.Errorf("could not create store: %w", err)
+	}
+	defer store.Close()
+
+	// FIXME: read from env var/secret
+	authKey, err := webauthn.GenerateKey(32)
+	if err != nil {
+		return nil, fmt.Errorf("could not generate auth key: %w", err)
+	}
+
+	// FIXME: read from env var/secret
+	encKey, err := webauthn.GenerateKey(32)
+	if err != nil {
+		return nil, fmt.Errorf("could not generate encryption key: %w", err)
+	}
+
+	// FIXME: read from env var
+	config := &gowebauthn.Config{
+		RPDisplayName: "Test",
+		RPID:          "mycoolmdm.stream",
+		RPOrigins:     []string{"https://mycoolmdm.stream"},
+	}
+
 	// set up static content handler
 	staticFS, err := fs.Sub(staticContent, "static")
 	if err != nil {
@@ -141,14 +170,33 @@ func (s *Server) Router() (http.Handler, error) {
 	// entrypoint to enrollment, require machineinfo header
 	mux.Handle("GET /mdm/enroll", machineinfo.SetMachineInfoSession(s.sessionStore, s.allowNoMachineInfo, s.StartHandler()))
 
-	// handle login + webauthn flow
-	mux.Handle("GET /mdm/enroll/login", machineinfo.WithMachineInfoSession(s.sessionStore, s.LoginHandler()))
+	// // handle login + webauthn flow
+	// mux.Handle("GET /mdm/enroll/login", machineinfo.WithMachineInfoSession(s.sessionStore, s.LoginHandler()))
 
 	// handle forced software update
 	mux.Handle("GET /mdm/enroll/update", machineinfo.WithMachineInfoSession(s.sessionStore, s.SoftwareUpdateHandler()))
 
 	// enrollment profile handler
 	mux.Handle("GET /mdm/enroll/finish", machineinfo.WithMachineInfoSession(s.sessionStore, s.EnrollHandler()))
+
+	// Create a new WebAuthn handler with the user store and logger
+	webAuthnHandler, err := webauthn.New(
+		webauthn.WithStore(store),
+		webauthn.WithLogger(s.logger),
+		webauthn.WithSessionKeys(authKey, encKey),
+		webauthn.WithConfig(config),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not create webauthn handler: %w", err)
+	}
+
+	// Mount /register to registration endpoints
+	mux.Handle("GET /register", webAuthnHandler.Router())
+	mux.Handle("POST /register", webAuthnHandler.Router())
+
+	// Mount /mdm/enroll/login to login endpoints
+	mux.Handle("GET /mdm/enroll/login", webAuthnHandler.Router())
+	mux.Handle("POST /mdm/enroll/login", webAuthnHandler.Router())
 
 	// other static files if needed
 	mux.Handle("GET /mdm/enroll/static/", http.StripPrefix("/mdm/enroll/static/", staticHandler))
