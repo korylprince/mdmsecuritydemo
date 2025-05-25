@@ -3,6 +3,7 @@
     <head>
         <title>MDM Enrollment</title>
         <meta charset='utf-8'>
+        <link rel="stylesheet" href="/mdm/enroll/static/style.css">
     </head>
     <body>
         <div>
@@ -11,13 +12,13 @@
             <div>OS Version: {{.MachineInfo.OSVersion}}</div>
         </div>
         <div>
-            <a href="/mdm/enroll/finish">Complete Enrollment</a>
+            <a href="/mdm/enroll/finish" class="btn">Complete Enrollment</a>
         </div>
         <div>
-            <a href="/ui/">Test Webauthn</a>
+            <a href="/ui/" class="btn">Test Webauthn</a>
         </div>
         <div>
-            <a href="/mdm/enroll/update">OS Update</a>
+            <a href="/mdm/enroll/update" class="btn">OS Update</a>
         </div>
     </body>
 </html>

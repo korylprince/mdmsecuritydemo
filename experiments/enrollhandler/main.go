@@ -23,7 +23,7 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-//go:embed static
+//go:embed static/*
 var staticContent embed.FS
 
 //go:embed tmpls/index.html.tmpl
@@ -142,9 +142,8 @@ func (s *Server) Router() (http.Handler, error) {
 	mux.Handle("GET /mdm/enroll/finish", machineinfo.WithMachineInfoSession(s.sessionStore, s.EnrollHandler()))
 
 	// other static files if needed
-	// FIXME: remove this if we don't need other static files
-	mux.Handle("GET /mdm/enroll/", machineinfo.WithMachineInfoSession(s.sessionStore, staticHandler))
-
+	mux.Handle("GET /mdm/enroll/static/", http.StripPrefix("/mdm/enroll/static/", staticHandler))
+	
 	return sloghttp.New(s.logger)(mux), nil
 }
 
