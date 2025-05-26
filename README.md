@@ -100,3 +100,58 @@ kubectl apply -f ./k8s
 ```
 
 FIXME: demo functionality
+
+# Configure DEP profiles (NanoDEP)
+
+Follow the NanoDEP docs to [set up your environment](https://github.com/micromdm/nanodep/blob/main/docs/quickstart.md#setup-environment):
+
+```bash
+export BASE_URL='https://<cluster.tld>'
+export APIKEY=$(kubectl get -n nanodep secrets/api-key --template='{{.data.password | base64decode}}')
+export DEP_NAME=mdm
+```
+
+Continue following the NanoDEP docs to
+
+- [generate and retrieve the DEP token public key](https://github.com/micromdm/nanodep/blob/main/docs/quickstart.md#generate-and-retrieve-the-dep-token-public-key)
+- [download your DEP token](https://github.com/micromdm/nanodep/blob/main/docs/quickstart.md#download-token)
+- [decrypt and upload it](https://github.com/micromdm/nanodep/blob/main/docs/quickstart.md#decrypt-tokens)
+- [assign devices in the portal](https://github.com/micromdm/nanodep/blob/main/docs/quickstart.md#assign-a-device-in-the-portal)
+
+Now create your DEP profile:
+
+```json
+{
+  "profile_name": "My Cool MDM",
+  "url": "https://<cluster.tld>/mdm/enroll",
+  "configuration_web_url": "https://<cluster.tld>/mdm/enroll",
+  "is_supervised": true,
+  "is_mandatory": true,
+  "is_mdm_removable": true,
+  "await_device_configured": false,
+  "org_magic": "AD5A973D-A4D4-405C-AD4E-7A7EFA5095A6",
+  "skip_setup_items": [
+    "AppleID",
+    "DisplayTone",
+    "Privacy",
+    "FileVault",
+    "iCloudDiagnostics",
+    "iCloudStorage",
+    "Restore",
+    "ScreenTime",
+    "Siri"
+  ],
+  "devices": ["serial1", "serial2"]
+}
+```
+
+Finally, assign the profile:
+
+```bash
+/path/to/nanodep_repo/tools/dep-define-profile.sh /path/to/dep_profile.json
+
+# output:
+{"profile_uuid":"EA75919B46644054A32B940C3B8AD094","devices":{"serial1":"SUCCESS","serial2":"SUCCESS"}}
+```
+
+**Note:** the default ingress match rule only exposes a limited subset of the [reverse proxy API](https://github.com/micromdm/nanodep/blob/main/docs/operations-guide.md#reverse-proxy), so some of the nanodep tools will return a "404 not found" message. Follow the comments in [nanodep.yaml](./k8s/nanodep.yaml) to fully expose the API.

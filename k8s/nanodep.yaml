@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nanodep
+
+# create persistent volume for file-based database
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nanodep
+  namespace: nanodep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+
+# generate API key
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-key
+  namespace: nanodep
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nanodep
+  namespace: nanodep
+  labels:
+    app: nanodep
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nanodep
+  template:
+    metadata:
+      labels:
+        app: nanodep
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nanodep
+      containers:
+      - name: nanodep
+        image: ghcr.io/micromdm/nanodep:sha-d10cdbb
+        args:
+          - "-storage"
+          - filekv
+          - "-storage-dsn"
+          - "/data"
+          - "-api"
+          - "$(API_KEY)"
+        ports:
+        - containerPort: 9001
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-key
+              key: password
+        volumeMounts:
+        - name: data
+          mountPath: /data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nanodep
+  namespace: nanodep
+spec:
+  selector:
+    app: nanodep
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9001
+
+# create middleware so we can access nanomdm api using /nanodep/... prefix
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-prefix
+  namespace: nanodep
+spec:
+  stripPrefix:
+    prefixes:
+      - /nanodep
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  namespace: nanodep
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd, nanodep-strip-prefix@kubernetescrd
+spec:
+  rules:
+  - host: "mycoolmdm.stream"
+    http:
+      paths:
+      - path: /nanodep/v1/
+        pathType: Prefix
+        backend:
+          service:
+            name: nanodep
+            port:
+              number: 80
+
+  - host: "mycoolmdm.stream"
+    http:
+      paths:
+        # restrict proxy to just profile endpoints
+      - path: /nanodep/proxy/mdm/profile
+        # swap to this line to get full proxy access
+      #- path: /nanodep/proxy/
+        pathType: Prefix
+        backend:
+          service:
+            name: nanodep
+            port:
+              number: 80
+  tls:
+    - secretName: ingress-tls
+      hosts:
+        - mycoolmdm.stream

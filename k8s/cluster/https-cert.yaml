@@ -27,7 +27,7 @@ spec:
 
   secretTemplate:
     annotations:
-      replicator.v1.mittwald.de/replicate-to: "dashboard,enroll,nanomdm,smallstep,webview"
+      replicator.v1.mittwald.de/replicate-to: "dashboard,enroll,nanodep,nanomdm,smallstep,webview"
 
   privateKey:
     algorithm: RSA
