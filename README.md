@@ -131,6 +131,7 @@ This command installs the following services:
     - Deploys the [step-ca](https://github.com/smallstep/certificates) server for ACME device attestation and issuance of device identity certificates
 - [nanomdm.yaml](./k8s/demo/nanomdm.yaml)
     - Deploys [NanoMDM](https://github.com/micromdm/nanomdm), an MDM server
+    - Also deploys a webhook ([nanowebhook](./nanowebhook)) to log NanoMDM webhook events
 - [dynamicacme.yaml](./k8s/demo/dynamicacme.yaml)
     - Deploys the demo [dynamicacme](./dynamicacme) service, which implements an API endpoint and step-ca webhook for dynamic, single-use ACME enrollment tokens
 - [enroll.yaml](./k8s/demo/enroll.yaml)
