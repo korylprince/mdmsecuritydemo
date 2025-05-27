@@ -6,6 +6,7 @@ if [ -z "$INGRESS_HOST" ]; then
     exit 1
 fi
 
+# get repo root
 SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 
 # create prerequisite cluster operators

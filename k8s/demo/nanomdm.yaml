@@ -158,7 +158,7 @@ spec:
     spec:
       containers:
       - name: webhook
-        image: registry-internal.${INGRESS_HOST}/nanowebhook:1
+        image: registry-internal.${INGRESS_HOST}/nanowebhook:1.0.0
         imagePullPolicy: Always
         # required for logging to work properly with flask
         tty: true

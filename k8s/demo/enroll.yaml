@@ -49,7 +49,7 @@ spec:
               path: ca.crt
       containers:
       - name: enroll
-        image: registry-internal.${INGRESS_HOST}/enroll:1
+        image: registry-internal.${INGRESS_HOST}/enroll:1.0.0
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

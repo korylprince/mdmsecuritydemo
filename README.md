@@ -37,6 +37,7 @@ You need to have the following in order to run this demo yourself:
 
 *Note: unless specified otherwise, run these commands on your local device.*
 
+1. [Install podman](https://podman.io/docs/installation)
 1. Install envsubst
     - macOS: `brew install gettext && brew link --force gettext`
     - apt: `apt-get install gettext-base`
@@ -53,7 +54,7 @@ You need to have the following in order to run this demo yourself:
 1. Verify kubectl connectivity:
     - `kubectl get pods -A` should return several running pods
 
-## Install Dependencies
+## Install dependencies
 
 ```bash
 INGRESS_HOST="cluster.tld" ./apply-cluster.sh
@@ -80,36 +81,38 @@ This command installs the following components:
         - Visit https://dashboard.<cluster.tld>
         - Enter token in login box
 
-## Build and push containers
+## Build and push demo containers
 
 This demo deploys some services from public container repos (e.g. Docker Hub and ghcr.io), but others are built from code in this repo.
 
 We deployed a private container registry in the cluster above so we can build and push images directly to the cluster (though hosting these in a public container repo works too!).
 
-Before deploying the demo services, build and push these images: (FIXME: add instructions for all services).
+```bash
+INGRESS_HOST="cluster.tld" ./build-containers.sh
+```
 
-1. Sign into container registry
-    - `docker login registry-<cluster.tld>`
-        - username: admin
-        - password: `kubectl get -n registry secrets/basic-auth --template='{{.data.password | base64decode}}'`
-1. Build container images
-    - Example:
-        - `docker build --platform=linux/amd64 -t registry.<cluster.tld>/dynamicacme:1 dynamicacme`
-1. Push container image
-    - Example:
-        - `docker push registry.<cluster.tld>/dynamicacme:1`
-1. Use container image
-    - Configure the image as `registry-internal.<cluster.tld>/dynamicacme:1` in the container spec
-    - `registry-internal.<cluster.tld>` requires no auth and can be accessed only from the cluster host itself
+### Local development
 
-If you're deploying a new image to an existing container, you must do one of the following to have the container use the new image:
+If you make code changes, do the following to build and push the changes:
 
-- Use a different image tag, update the yaml file, and run `kubectl apply -f <yaml>`
+```bash
+INGRESS_HOST="cluster.tld" ./build-containers.sh container_name
+```
+
+Where `container_name` is the name of a directory in the root of this repo (e.g. dynamicacme, enrollhandler).
+
+To deploy the new image to the cluster, you must do one of the following:
+
+- Update the image tag:
+    - Update `<container_name>/IMAGE_TAG` with a new tag
+    - Run `INGRESS_HOST="cluster.tld" ./build-containers.sh container_name`
+    - Update corresponding image tag in `k8s/demo/<container_name>.yaml`
+    - Run `INGRESS_HOST="cluster.tld" ./apply-demo.sh`
 - If you use the same image tag as before, you'll need to run `kubectl rollout restart -n <namespace> deploy/<deploy name>`
     - This requires that ImagePullPolicy is set to Always on the container spec. Otherwise it won't check if the image changed
 - Delete the deploy and reapply the yaml:
     - `kubectl delete deploy -n <namespace> <deploy name>`
-    - `kubectl apply -f file.yaml`
+    - `INGRESS_HOST="cluster.tld" ./apply-demo.sh`
 
 ## Deploy services
 
@@ -131,14 +134,13 @@ This command installs the following services:
     - Deploys the [step-ca](https://github.com/smallstep/certificates) server for ACME device attestation and issuance of device identity certificates
 - [nanomdm.yaml](./k8s/demo/nanomdm.yaml)
     - Deploys [NanoMDM](https://github.com/micromdm/nanomdm), an MDM server
-    - Also deploys a webhook ([nanowebhook](./nanowebhook)) to log NanoMDM webhook events
+    - Also deploys a webhook ([nanowebhook](./nanowebhook)) to log device events
 - [dynamicacme.yaml](./k8s/demo/dynamicacme.yaml)
     - Deploys the demo [dynamicacme](./dynamicacme) service, which implements an API endpoint and step-ca webhook for dynamic, single-use ACME enrollment tokens
 - [enroll.yaml](./k8s/demo/enroll.yaml)
     - Deploys the demo [enrollhandler](./enrollhandler) service, which implements enrollment profile generation and the bulk of demo security controls
-    - FIXME: move this out of experiments
 
-# Configure DEP profiles (NanoDEP)
+# Configure DEP profile (NanoDEP)
 
 Follow the NanoDEP docs to [set up your environment](https://github.com/micromdm/nanodep/blob/main/docs/quickstart.md#setup-environment):
 
