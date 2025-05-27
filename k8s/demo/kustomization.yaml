@@ -1,0 +1,21 @@
+resources:
+- ca.yaml
+- dynamicacme.yaml
+- enroll.yaml
+- nanodep.yaml
+- nanomdm.yaml
+- smallstep.yaml
+- webview.yaml
+
+generatorOptions:
+ disableNameSuffixHash: true
+
+configMapGenerator:
+- name: template
+  namespace: smallstep
+  files:
+  - files/template.json
+- name: init
+  namespace: smallstep
+  files:
+  - files/init.sh

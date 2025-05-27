@@ -26,7 +26,7 @@ metadata:
     traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
 spec:
   rules:
-  - host: "dashboard.mycoolmdm.stream"
+  - host: dashboard.${INGRESS_HOST}
     http:
       paths:
       - path: /
@@ -39,7 +39,7 @@ spec:
   tls:
     - secretName: ingress-tls
       hosts:
-        - dashboard.mycoolmdm.stream
+        - dashboard.${INGRESS_HOST}
 
 # create service account for accessing dashboard
 ---

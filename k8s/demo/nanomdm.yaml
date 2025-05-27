@@ -158,7 +158,7 @@ spec:
     spec:
       containers:
       - name: webhook
-        image: registry-internal.mycoolmdm.stream/nanowebhook:1
+        image: registry-internal.${INGRESS_HOST}/nanowebhook:1
         imagePullPolicy: Always
         # required for logging to work properly with flask
         tty: true
@@ -189,7 +189,7 @@ metadata:
     traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
 spec:
   rules:
-  - host: "mycoolmdm.stream"
+  - host: "${INGRESS_HOST}"
     http:
       paths:
       - path: /
@@ -202,4 +202,4 @@ spec:
   tls:
     - secretName: ingress-tls
       hosts:
-        - mycoolmdm.stream
+        - ${INGRESS_HOST}

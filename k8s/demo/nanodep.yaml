@@ -108,7 +108,7 @@ metadata:
     traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd, nanodep-strip-prefix@kubernetescrd
 spec:
   rules:
-  - host: "mycoolmdm.stream"
+  - host: "${INGRESS_HOST}"
     http:
       paths:
       - path: /nanodep/v1/
@@ -119,7 +119,7 @@ spec:
             port:
               number: 80
 
-  - host: "mycoolmdm.stream"
+  - host: "${INGRESS_HOST}"
     http:
       paths:
         # restrict proxy to just profile endpoints
@@ -135,4 +135,4 @@ spec:
   tls:
     - secretName: ingress-tls
       hosts:
-        - mycoolmdm.stream
+        - ${INGRESS_HOST}

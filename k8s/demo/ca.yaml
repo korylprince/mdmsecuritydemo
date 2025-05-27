@@ -16,7 +16,7 @@ metadata:
   namespace: cert-manager
 spec:
   isCA: true
-  commonName: mycoolmdm.stream
+  commonName: ${INGRESS_HOST}
   privateKey:
     algorithm: ECDSA
     size: 256

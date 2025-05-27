@@ -41,7 +41,7 @@ spec:
             claimName: user-store
       containers:
       - name: webview
-        image: registry-internal.mycoolmdm.stream/webview:2.2
+        image: registry-internal.${INGRESS_HOST}/webview:2.2
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -73,7 +73,7 @@ metadata:
     traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
 spec:
   rules:
-  - host: "mycoolmdm.stream"
+  - host: "${INGRESS_HOST}"
     http:
       paths:
       - path: /ui
@@ -93,4 +93,4 @@ spec:
   tls:
     - secretName: ingress-tls
       hosts:
-        - mycoolmdm.stream
+        - ${INGRESS_HOST}

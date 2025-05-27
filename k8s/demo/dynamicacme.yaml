@@ -79,7 +79,7 @@ spec:
               path: tls.key
       containers:
       - name: dynamicacme
-        image: registry-internal.mycoolmdm.stream/dynamicacme:1
+        image: registry-internal.${INGRESS_HOST}/dynamicacme:1
         imagePullPolicy: Always
         ports:
         - containerPort: 443
