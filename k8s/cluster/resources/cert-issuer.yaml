@@ -40,7 +40,6 @@ spec:
   commonName: ${INGRESS_HOST}
   dnsNames:
     - ${INGRESS_HOST}
-    - mdm.${INGRESS_HOST}
     - registry.${INGRESS_HOST}
     - registry-internal.${INGRESS_HOST}
     - dashboard.${INGRESS_HOST}

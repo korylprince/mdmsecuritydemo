@@ -30,7 +30,6 @@ You need to have the following in order to run this demo yourself:
         - registry.cluster.tld CNAME cluster.tld
         - registry.cluster.tld CNAME cluster.tld
         - registry-internal.cluster.tld CNAME cluster.tld
-        - mdm.cluster.tld CNAME cluster.tld
         - dashboard.cluster.tld CNAME cluster.tld
 
 ## Initial cluster setup
