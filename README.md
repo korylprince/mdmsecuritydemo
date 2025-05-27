@@ -1,24 +1,50 @@
 # About
 
-TBD
+This repo demos a macOS MDM that implements the following enrollment security controls:
 
-Components:
-TBD
+- [Authenticating Through Web Views](https://developer.apple.com/documentation/devicemanagement/authenticating-through-web-views)
+    - Verification of the [`x-apple-aspen-deviceinfo` header](https://developer.apple.com/documentation/devicemanagement/machineinfo)
+    - Serial Number authorization
+    - User login including WebAuthn
+    - Forced OS update during Setup Assistant
+- Enrollment security
+    - Required use of ACME with [Managed Device Attestation](https://support.apple.com/guide/deployment/managed-device-attestation-dep28afbde6a/web)
+    - Dynamic, single-use ACME enrollment tokens
 
+**Warning:** This is a demo, not a product. You should use this for inspiration, not running in production.
 
-# Kubernetes (k8s) cluster setup
+# Running the Demo
 
-## FIXME: move to a helm chart to parameterize hostname, IP, etc
+This demo is designed to run on a single-node [k3s](https://k3s.io/) cluster. Follow the steps below to set up your own demo environment.
 
-This demo is running on a single-node [k3s](https://k3s.io/) cluster. Follow these steps to set up a k3s cluster yourself:
+## Prerequisites
+
+You need to have the following in order to run this demo yourself:
+
+- A linux server instance that meets the [k3s requirements](https://docs.k3s.io/installation/requirements)
+- An Internet public IP address assigned or routed to your server
+- A public DNS name pointed at the public IP
+    - In the rest of this README, replace `cluster.tld` with the DNS domain you're using
+    - You should have the following DNS records configured:
+        - cluster.tld A <server's public IP>
+        - registry.cluster.tld CNAME cluster.tld
+        - registry.cluster.tld CNAME cluster.tld
+        - registry-internal.cluster.tld CNAME cluster.tld
+        - mdm.cluster.tld CNAME cluster.tld
+        - dashboard.cluster.tld CNAME cluster.tld
 
 ## Initial cluster setup
 
+*Note: unless specified otherwise, run these commands on your local device.*
+
+1. Install envsubst
+    - macOS: `brew install gettext && brew link --force gettext`
+    - apt: `apt-get install gettext-base`
+    - rpm: `yum install gettext-envsubst`
 1. [Install kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl):
 1. [Install k3s](https://docs.k3s.io/installation):
-    - On a linux server (we used Ubuntu 22.04):
+    - On your linux server, run:
         - `curl -sfL https://get.k3s.io | sh -`
-    - See the [k3d project](https://k3d.io/stable/) for running k3s in Docker on other OSes - this setup is untested for this demo
 1.  Port-forward the k8s API port to your local device:
     - `ssh -L 6443:localhost:6443 user@yourserver.tld`
     - Keep this connection open to use kubectl locally, or use `k3s kubectl ...` directly on your server
@@ -27,33 +53,27 @@ This demo is running on a single-node [k3s](https://k3s.io/) cluster. Follow the
 1. Verify kubectl connectivity:
     - `kubectl get pods -A` should return several running pods
 
-TBD: DNS records
+## Install Dependencies
 
-## Cluster dependencies
+```bash
+INGRESS_HOST="cluster.tld" ./apply-cluster.sh
+```
 
-Install these dependencies on your new cluster so you can deploy the demo in the next step.
+This command installs the following components:
 
-Install each dependency in order using `kubectl apply -f path/to/file.yaml`
-
-1. [password-generator.yaml](./k8s/cluster/password-generator.yaml)
+- [password-generator.yaml](./k8s/cluster/operators/password-generator.yaml)
     - Installs [a k8s operator](https://github.com/mittwald/kubernetes-secret-generator) that generates secrets (passwords, basic auth credentials, etc)
-1. [replicator.yaml](./k8s/cluster/replicatoryaml)
+- [replicator.yaml](./k8s/cluster/operators/replicator.yaml)
     - Installs [a k8s operator](https://github.com/mittwald/kubernetes-replicator) that replicates secrets between namespaces (to share certificates and passwords between namespaces)
-1. [lb.yaml](./k8s/cluster/lb.yaml)
+- [traefik.yaml](./k8s/cluster/operators/traefik.yaml)
     - Configures the [built-in Traefik Ingress controller](https://docs.k3s.io/networking/networking-services#traefik-ingress-controller) to use the real client IPs and adds http-redirection and internal-only middleware
-1. [cert-manager.yaml](./k8s/cluster/cert-manager.yaml)
+- [cert-manager.yaml](./k8s/cluster/operators/cert-manager.yaml)
     - Installs [a k8s operator](https://cert-manager.io/) that supports generating PKI (CAs, certs, etc) including from Let's Encrypt
-1. [letsencrypt-issuer.yaml](./k8s/cluster/letsencrypt-issuer.yaml)
-    - Configures a Let's Encrypt cert-manager issuer
-1. [https-cert.yaml](./k8s/cluster/https-cert.yaml)
-    - Requests a certificate from Let's Encrypt that is shared with other services
-    - To use Let's Encrypt automatic certificates, your k8s cluster must have a public IP, and you must have a domain with DNS pointed at the server
-        - If you don't have a server with a public IP, using the [DNS-01 challenge](https://cert-manager.io/docs/configuration/acme/dns01/) might be an alternative
-1. Optional - [registry-password.yaml](./k8s/cluster/registry-password.yaml)
-    - Generates basic auth for a cluster-hosted container registry
-1. Optional - [registry.yaml](./k8s/cluster/replicatoryaml)
+- [cert-issuer.yaml](./k8s/cluster/resources/cert-issuer.yaml)
+    - Configures a Let's Encrypt cert-manager issuer and HTTPS certificate for cluster services
+- [registry.yaml](./k8s/cluster/services/registry.yaml)
     - Installs a container registry to the cluster for private container image hosting
-1. Optional - [dashboard.yaml](./k8s/cluster/dashboard.yaml)
+- [dashboard.yaml](./k8s/cluster/services/dashboard.yaml)
     - Installs [Kubernetes Dashboard](https://github.com/kubernetes/dashboard)
     - To access:
         - Run `kubectl -n dashboard create token admin` and copy token
@@ -96,10 +116,26 @@ If you're deploying a new image to an existing container, you must do one of the
 Now that all of our dependencies are installed and our service containers are built, it's time to deploy all of the services:
 
 ```bash
-kubectl apply -f ./k8s
+INGRESS_HOST="cluster.tld" ./apply-demo.sh
 ```
 
-FIXME: demo functionality
+This command installs the following services:
+
+- [ca.yaml](./k8s/demo/ca.yaml)
+    - Creates the CA certificate used to sign and verify MDM device identity certificates
+    - Note: Smallstep step-ca will create it's own intermediate signing certificate that actually signs the device identity certificates
+- [nanodep.yaml](./k8s/demo/nanodep.yaml)
+    - Deploys [NanoDEP](https://github.com/micromdm/nanodep) for configuring DEP profiles
+    - See the [Configure DEP profiles (NanoDEP)](#configure-dep-profiles-nanodep) section below for more info
+- [smallstep.yaml](./k8s/demo/smallstep.yaml)
+    - Deploys the [step-ca](https://github.com/smallstep/certificates) server for ACME device attestation and issuance of device identity certificates
+- [nanomdm.yaml](./k8s/demo/nanomdm.yaml)
+    - Deploys [NanoMDM](https://github.com/micromdm/nanomdm), an MDM server
+- [dynamicacme.yaml](./k8s/demo/dynamicacme.yaml)
+    - Deploys the demo [dynamicacme](./dynamicacme) service, which implements an API endpoint and step-ca webhook for dynamic, single-use ACME enrollment tokens
+- [enroll.yaml](./k8s/demo/enroll.yaml)
+    - Deploys the demo [enrollhandler](./enrollhandler) service, which implements enrollment profile generation and the bulk of demo security controls
+    - FIXME: move this out of experiments
 
 # Configure DEP profiles (NanoDEP)
 
