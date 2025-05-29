@@ -22,5 +22,39 @@
         <div>
             <a href="/mdm/enroll/update" class="btn">OS Update</a>
         </div>
+        <hr />
+        <div>
+            <button id="show-register" class="btn">Create Account</button>
+        </div>
+        <div id="register-form-container" style="display:none;">
+            <h2>Register New User</h2>
+            <form id="register-form">
+                <label for="reg-username">Username:</label>
+                <input type="text" id="reg-username" name="username" required>
+                <br>
+                <label for="reg-displayname">Display Name:</label>
+                <input type="text" id="reg-displayname" name="display_name" required>
+                <br>
+                <label for="reg-password">Password:</label>
+                <input type="password" id="reg-password" name="password" required>
+                <br>
+                <button type="submit" class="btn">Register</button>
+                <button type="button" id="cancel-register" class="btn">Cancel</button>
+            </form>
+        </div>
+        <hr />
+        <h2>Login</h2>
+        <div>
+            <form id="login-form">
+                <label for="login-username">Username:</label>
+                <input type="text" id="login-username" name="username" required>
+                <br>
+                <label for="login-password">Password:</label>
+                <input type="password" id="login-password" name="password" required>
+                <br>
+                <button type="submit" class="btn">Login with Passkey</button>
+            </form>
+        </div>
+        <script src="/mdm/enroll/static/main.js"></script>
     </body>
 </html>

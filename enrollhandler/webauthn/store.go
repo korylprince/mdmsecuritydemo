@@ -26,6 +26,7 @@ type User struct {
 	ID          string                         `json:"id"`
 	Name        string                         `json:"name"`
 	DisplayName string                         `json:"display_name"`
+	Password    string                         `json:"password"` 
 	Credentials map[string]webauthn.Credential `json:"credentials"`
 }
 
