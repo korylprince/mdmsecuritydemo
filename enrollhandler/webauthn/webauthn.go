@@ -134,19 +134,26 @@ func (wa *WebAuthn) handler(f handlerFunc) http.Handler {
 func (wa *WebAuthn) BeginRegistration(wr http.ResponseWriter, r *http.Request) (any, error) {
 	// read user ID from path
 	id := r.PathValue("USERID")
-    if len(id) == 0 {
-        return nil, &HTTPError{StatusCode: http.StatusBadRequest, Err: errors.New("empty id")}
-    }
-    displayName := r.URL.Query().Get("display_name")
+	if len(id) == 0 {
+		return nil, &HTTPError{StatusCode: http.StatusBadRequest, Err: errors.New("empty id")}
+	}
+	displayName := r.URL.Query().Get("display_name")
 	password := r.URL.Query().Get("password")
 
-    user := &User{
-        ID:          id,
-        Name:        id,
-        DisplayName: displayName,
+	if len(displayName) == 0 {
+		return nil, &HTTPError{StatusCode: http.StatusBadRequest, Err: errors.New("empty display name")}
+	}
+	if len(password) == 0 {
+		return nil, &HTTPError{StatusCode: http.StatusBadRequest, Err: errors.New("empty password")}
+	}
+
+	user := &User{
+		ID:          id,
+		Name:        id,
+		DisplayName: displayName,
 		Password:    password,
-        Credentials: map[string]webauthn.Credential{},
-    }
+		Credentials: map[string]webauthn.Credential{},
+	}
 
 	// get webauthn options and login session data
 	options, sessionData, err := wa.webAuthn.BeginRegistration(user)
@@ -158,7 +165,7 @@ func (wa *WebAuthn) BeginRegistration(wr http.ResponseWriter, r *http.Request) (
 	session, err := sessions.GetRegistry(r).Get(wa.sessionStore, id)
 	if err != nil {
 		// sloghttp.AddCustomAttributes(r, slog.String("warning", fmt.Sprintf("could not get session: %v", err)))
-		
+
 	}
 
 	session.Values[registrationSessionKey] = sessionData
@@ -239,7 +246,7 @@ func (wa *WebAuthn) BeginLogin(wr http.ResponseWriter, r *http.Request) (any, er
 	}
 
 	password := r.URL.Query().Get("password")
-    if user.Password != password {
+	if user.Password != password {
 		return nil, &HTTPError{StatusCode: http.StatusUnauthorized, Err: errors.New("invalid password")}
 	}
 

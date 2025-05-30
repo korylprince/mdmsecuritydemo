@@ -44,6 +44,7 @@ func run() error {
 		RPID:          "mycoolmdm.stream",
 		RPOrigins:     []string{"https://mycoolmdm.stream"},
 	}
+	
 
 	w, err := webauthn.New(
 		webauthn.WithConfig(config),

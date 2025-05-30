@@ -21,10 +21,10 @@ import (
 	"github.com/korylprince/dep-webview-oidc/header"
 	"github.com/korylprince/mdmsecuritydemo/enrollhandler/machineinfo"
 
-	// "github.com/korylprince/mdmsecuritydemo/enrollhandler/webauthn"
+	gowebauthn "github.com/go-webauthn/webauthn/webauthn"
+	"github.com/korylprince/mdmsecuritydemo/enrollhandler/webauthn"
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/crypto/argon2"
-	// gowebauthn "github.com/go-webauthn/webauthn/webauthn"
 )
 
 //go:embed static/*
@@ -131,8 +131,7 @@ func NewServer(opts ...Option) *Server {
 	return s
 }
 
-func (s *Server) Router() (http.Handler, error) {
-
+func (s *Server) Router(wa *webauthn.WebAuthn) (http.Handler, error) {
 	// set up static content handler
 	staticFS, err := fs.Sub(staticContent, "static")
 	if err != nil {
@@ -141,6 +140,8 @@ func (s *Server) Router() (http.Handler, error) {
 	staticHandler := http.FileServer(http.FS(staticFS))
 
 	mux := http.NewServeMux()
+
+	mux.Handle("/users/", wa.Router())
 
 	// entrypoint to enrollment, require machineinfo header
 	mux.Handle("GET /mdm/enroll", machineinfo.SetMachineInfoSession(s.sessionStore, s.allowNoMachineInfo, s.StartHandler()))
@@ -153,7 +154,6 @@ func (s *Server) Router() (http.Handler, error) {
 
 	// enrollment profile handler
 	mux.Handle("GET /mdm/enroll/finish", machineinfo.WithMachineInfoSession(s.sessionStore, s.EnrollHandler()))
-
 
 	// other static files if needed
 	mux.Handle("GET /mdm/enroll/static/", http.StripPrefix("/mdm/enroll/static/", staticHandler))
@@ -344,6 +344,8 @@ func run() error {
 	sessionAuthKey := argon2.IDKey([]byte(os.Getenv("SESSION_AUTH_KEY")), []byte("salt"), 1, 64*1024, 4, 32)
 	sessionEncKey := argon2.IDKey([]byte(os.Getenv("SESSION_ENC_KEY")), []byte("salt"), 1, 64*1024, 4, 32)
 
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 	opts := []Option{
 		WithSessionKeys(sessionAuthKey, sessionEncKey),
 		WithAllowNoMachineInfo(os.Getenv("ALLOW_NO_MACHINEINFO") == "true"),
@@ -357,7 +359,7 @@ func run() error {
 			os.Getenv("APNS_TOPIC"),
 			os.Getenv("ACME_DIRECTORY"),
 		),
-		WithLogger(slog.New(slog.NewJSONHandler(os.Stdout, nil))),
+		WithLogger(logger),
 	}
 
 	// this must be configured as the version string Apple uses for an OS version
@@ -372,7 +374,29 @@ func run() error {
 
 	s := NewServer(opts...)
 
-	router, err := s.Router()
+	userStore, err := webauthn.NewFileUserStore("users")
+	if err != nil {
+		return fmt.Errorf("could not create user store: %w", err)
+	}
+	// Set up WebAuthn config
+	waConfig := &gowebauthn.Config{
+		RPDisplayName: "My Cool MDM",                        // Display name for your app
+		RPID:          "mycoolmdm.stream",                   // Your domain
+		RPOrigins:     []string{"https://mycoolmdm.stream"}, // Your origin
+	}
+
+	// Build the WebAuthn handler
+	wa, err := webauthn.New(
+		webauthn.WithConfig(waConfig),
+		webauthn.WithStore(userStore),
+		webauthn.WithSessionKeys(sessionAuthKey, sessionEncKey),
+		webauthn.WithLogger(logger),
+	)
+	if err != nil {
+		return fmt.Errorf("could not create webauthn handler: %w", err)
+	}
+
+	router, err := s.Router(wa)
 	if err != nil {
 		return err
 	}
@@ -384,6 +408,6 @@ func run() error {
 func main() {
 	fmt.Println("starting server")
 	if err := run(); err != nil {
-		log.Fatalf("error:", err)
+		log.Fatalf("error: %v", err)
 	}
 }

@@ -15,12 +15,23 @@ function bufferToBase64url(buffer) {
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// Show/hide forms
+document.getElementById('show-login').onclick = () => {
+    document.getElementById('login-form-container').style.display = 'block';
+    document.getElementById('register-form-container').style.display = 'none';
+};
+document.getElementById('cancel-login').onclick = () => {
+    document.getElementById('login-form-container').style.display = 'none';
+};
 document.getElementById('show-register').onclick = () => {
     document.getElementById('register-form-container').style.display = 'block';
+    document.getElementById('login-form-container').style.display = 'none';
 };
 document.getElementById('cancel-register').onclick = () => {
     document.getElementById('register-form-container').style.display = 'none';
 };
+
+// Handle registration and login forms
 document.getElementById('register-form').onsubmit = async function(e) {
     e.preventDefault();
     const username = document.getElementById('reg-username').value;

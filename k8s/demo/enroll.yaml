@@ -125,7 +125,7 @@ spec:
             name: enroll
             port:
               number: 80
-      - path: /login
+      - path: /users
         pathType: Prefix
         backend:
           service:
