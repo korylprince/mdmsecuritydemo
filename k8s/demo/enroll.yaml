@@ -84,6 +84,9 @@ spec:
           value: "com.apple.mgmt.External.Test"
         - name: ACME_DIRECTORY
           value: "https://${INGRESS_HOST}/acme/acme/directory"
+
+        - name: REQUIRED_VERSION
+          value: "15.5"
         volumeMounts:
         - name: "ca"
           mountPath: /etc/enroll

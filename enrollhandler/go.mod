@@ -6,6 +6,7 @@ toolchain go1.23.8
 
 require (
 	github.com/gorilla/sessions v1.4.0
+	github.com/hashicorp/go-version v1.7.0
 	github.com/korylprince/dep-webview-oidc v0.2.0
 	github.com/samber/slog-http v1.7.0
 	golang.org/x/crypto v0.9.0

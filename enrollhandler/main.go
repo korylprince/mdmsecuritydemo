@@ -17,6 +17,7 @@ import (
 	_ "embed"
 
 	"github.com/gorilla/sessions"
+	"github.com/hashicorp/go-version"
 	"github.com/korylprince/dep-webview-oidc/header"
 	"github.com/korylprince/mdmsecuritydemo/enrollhandler/machineinfo"
 	sloghttp "github.com/samber/slog-http"
@@ -66,6 +67,8 @@ type Server struct {
 	apnsTopic     string
 	acmeDirectory string
 
+	requiredVersion *version.Version
+
 	logger *slog.Logger
 }
 
@@ -101,6 +104,12 @@ func WithMDMConfig(url, topic, directoryURL string) Option {
 		s.mdmURL = url
 		s.apnsTopic = topic
 		s.acmeDirectory = directoryURL
+	}
+}
+
+func WithRequiredVersion(v *version.Version) Option {
+	return func(s *Server) {
+		s.requiredVersion = v
 	}
 }
 
@@ -143,7 +152,7 @@ func (s *Server) Router() (http.Handler, error) {
 
 	// other static files if needed
 	mux.Handle("GET /mdm/enroll/static/", http.StripPrefix("/mdm/enroll/static/", staticHandler))
-	
+
 	return sloghttp.New(s.logger)(mux), nil
 }
 
@@ -186,25 +195,59 @@ type OSUpdateRequired struct {
 
 type ErrorDetails struct {
 	OSVersion    string `json:"OSVersion"`
-	BuildVersion string `json:"BuildVersion"`
+	BuildVersion string `json:"BuildVersion,omitempty"`
 }
 
+// SoftwareUpdateHandler checks if the macOS version meets the required version (if set) and
+// forces a software update if not and the device is at setup assistant.
+// Otherwise, redirect to the next parameter.
+// documented here: https://github.com/apple/device-management/blob/release/mdm/errors/softwareupdate.required.yaml
+// and here: https://developer.apple.com/documentation/devicemanagement/errorcodesoftwareupdaterequired
 func (s *Server) SoftwareUpdateHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// documented here: https://github.com/apple/device-management/blob/release/mdm/errors/softwareupdate.required.yaml
-		// and here: https://developer.apple.com/documentation/devicemanagement/errorcodesoftwareupdaterequired
-		// basically return HTTP 403 with the json body
-		// See ergo/mdmenroll for an example of this
+		var osUpdateRequired bool
+		defer sloghttp.AddCustomAttributes(r, slog.Any("os_update_required", osUpdateRequired))
 
+		// get the handler to redirect to on success
+		next := r.FormValue("next")
+		if next == "" {
+			next = "/mdm/enroll/finish"
+		}
+		sloghttp.AddCustomAttributes(r, slog.String("next", next))
+
+		// get machine info from cookie
+		info := machineinfo.FromContext(r.Context())
+
+		// if we can't check the version, redirect
+		if !info.MDMCanRequestSoftwareUpdate || s.requiredVersion == nil {
+			http.Redirect(w, r, next, http.StatusFound)
+			return
+		}
+
+		ver, err := version.NewVersion(info.OSVersion)
+		if err != nil {
+			sloghttp.AddCustomAttributes(r, slog.String("version_parse_error", err.Error()))
+			http.Redirect(w, r, next, http.StatusFound)
+			return
+		}
+
+		// check version meets requirements
+		if ver.GreaterThanOrEqual(s.requiredVersion) {
+			http.Redirect(w, r, next, http.StatusFound)
+			return
+		}
+
+		// otherwise return an error to force the update
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden) // 403
+		osUpdateRequired = true
 
 		OSUpdateRequired := &OSUpdateRequired{
 			Code:        "com.apple.softwareupdate.required",
 			Description: "Device requires a software update before enrollment.",
 			Message:     "A software update is required to continue.",
 			Details: &ErrorDetails{
-				OSVersion: "15.5.0",
+				OSVersion: s.requiredVersion.Original(),
 			},
 		}
 
@@ -213,9 +256,6 @@ func (s *Server) SoftwareUpdateHandler() http.Handler {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		sloghttp.AddCustomAttributes(r, slog.Any("os_update_required", OSUpdateRequired))
-
-		// TODO: if we have time, implement basic GDMF API integration
 	})
 }
 
@@ -288,7 +328,7 @@ func run() error {
 	sessionAuthKey := argon2.IDKey([]byte(os.Getenv("SESSION_AUTH_KEY")), []byte("salt"), 1, 64*1024, 4, 32)
 	sessionEncKey := argon2.IDKey([]byte(os.Getenv("SESSION_ENC_KEY")), []byte("salt"), 1, 64*1024, 4, 32)
 
-	s := NewServer(
+	opts := []Option{
 		WithSessionKeys(sessionAuthKey, sessionEncKey),
 		WithAllowNoMachineInfo(os.Getenv("ALLOW_NO_MACHINEINFO") == "true"),
 		WithDynamicAPI(
@@ -302,7 +342,19 @@ func run() error {
 			os.Getenv("ACME_DIRECTORY"),
 		),
 		WithLogger(slog.New(slog.NewJSONHandler(os.Stdout, nil))),
-	)
+	}
+
+	// this must be configured as the version string Apple uses for an OS version
+	// i.e. 15.5, not 15.5.0
+	if v := os.Getenv("REQUIRED_VERSION"); v != "" {
+		ver, err := version.NewVersion(v)
+		if err != nil {
+			return fmt.Errorf("could not parse REQUIRED_VERSION: %w", err)
+		}
+		opts = append(opts, WithRequiredVersion(ver))
+	}
+
+	s := NewServer(opts...)
 
 	router, err := s.Router()
 	if err != nil {
