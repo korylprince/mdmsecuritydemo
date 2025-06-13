@@ -1,0 +1,205 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nanomdm
+
+# create persistent volume for file-based database
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nanomdm
+  namespace: nanomdm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+
+# generate API key
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-key
+  namespace: nanomdm
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+
+# create role and role binding to let smallstep create the
+# intermediate ca config map in the nanomdm namespace
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: nanomdm
+  name: secret-updater
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["intermediate-ca"]
+  verbs: ["create", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: smallstep-secret-updater
+  namespace: nanomdm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: secret-updater
+subjects:
+- kind: ServiceAccount
+  name: smallstep
+  namespace: smallstep
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nanomdm
+  namespace: nanomdm
+  labels:
+    app: nanomdm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nanomdm
+  template:
+    metadata:
+      labels:
+        app: nanomdm
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nanomdm
+        - name: ca
+          secret:
+            secretName: ca-secret
+            items:
+            - key: ca.crt
+              path: ca.crt
+        - name: intermediate-ca
+          configMap:
+            name: intermediate-ca
+            items:
+              - key: intermediate.crt
+                path: intermediate.crt
+      containers:
+      - name: nanomdm
+        image: ghcr.io/micromdm/nanomdm:sha-07ea751
+        args:
+          - "-ca"
+          - /etc/nanomdm/ca.crt
+          - "-intermediate"
+          - /etc/nanomdm/intermediate/intermediate.crt
+          - "-storage"
+          - filekv
+          - "-storage-dsn"
+          - "/data"
+          - "-webhook-url"
+          - "http://webhook.nanomdm"
+          - "-api"
+          - "$(API_KEY)"
+        ports:
+        - containerPort: 9000
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: api-key
+              key: password
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: ca
+          mountPath: /etc/nanomdm
+        - name: intermediate-ca
+          mountPath: /etc/nanomdm/intermediate
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nanomdm
+  namespace: nanomdm
+spec:
+  selector:
+    app: nanomdm
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9000
+
+# run a webhook to log device responses
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook
+  namespace: nanomdm
+  labels:
+    app: webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook
+  template:
+    metadata:
+      labels:
+        app: webhook
+    spec:
+      containers:
+      - name: webhook
+        image: registry-internal.${INGRESS_HOST}/nanowebhook:1.0.0
+        imagePullPolicy: Always
+        # required for logging to work properly with flask
+        tty: true
+        ports:
+        - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook
+  namespace: nanomdm
+spec:
+  selector:
+    app: webhook
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  namespace: nanomdm
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
+spec:
+  rules:
+  - host: "${INGRESS_HOST}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nanomdm
+            port:
+              number: 80
+  tls:
+    - secretName: ingress-tls
+      hosts:
+        - ${INGRESS_HOST}

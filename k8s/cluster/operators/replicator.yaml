@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: replicator
+
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: replicator
+  namespace: kube-system
+spec:
+  chart: https://helm.mittwald.de/charts/kubernetes-replicator-2.11.1.tgz
+  targetNamespace: replicator
+  set:
+    grantClusterAdmin: "true"

@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: deviceinventory
+
+# create persistent volume for file-based inventory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deviceinventory
+  namespace: deviceinventory
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+
+# generate API secret
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: deviceinventory-api-key
+  namespace: deviceinventory
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+    replicator.v1.mittwald.de/replicate-to: "dynamicacme,enroll"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deviceinventory
+  namespace: deviceinventory
+  labels:
+    app: deviceinventory
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deviceinventory
+  template:
+    metadata:
+      labels:
+        app: deviceinventory
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: deviceinventory
+      containers:
+      - name: deviceinventory
+        image: registry-internal.${INGRESS_HOST}/deviceinventory:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: deviceinventory-api-key
+              key: password
+        # contains serial numbers allowed to enroll
+        - name: INVENTORY_PATH
+          value: "/data/inventory.txt"
+        volumeMounts:
+        - name: data
+          mountPath: /data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deviceinventory
+  namespace: deviceinventory
+spec:
+  selector:
+    app: deviceinventory
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

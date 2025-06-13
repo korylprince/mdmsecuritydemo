@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+        <dict>
+            <key>ClientIdentifier</key>
+            <string>{{.MachineInfo.Serial}}</string>
+            <key>HardwareBound</key>
+            <true/>
+            <key>Attest</key>
+            <true/>
+            <key>ExtendedKeyUsage</key>
+            <array>
+                <string>1.3.6.1.5.5.7.3.2</string>
+            </array>
+            <key>KeySize</key>
+            <integer>384</integer>
+            <key>KeyType</key>
+            <string>ECSECPrimeRandom</string>
+            <key>UsageFlags</key>
+            <integer>5</integer>
+            <key>PayloadIdentifier</key>
+            <string>com.github.micromdm.acme</string>
+            <key>PayloadType</key>
+            <string>com.apple.security.acme</string>
+            <key>PayloadUUID</key>
+            <string>EC34F312-37A4-4150-9C7F-0C881DDA037A</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>Subject</key>
+            <array>
+                <array>
+                    <array>
+                        <!-- serialNumber -->
+                        <string>2.5.4.5</string>
+                        <string>{{.MachineInfo.Serial}}</string>
+                    </array>
+                </array>
+                <array>
+                    <array>
+                        <!-- description (product) -->
+                        <string>2.5.4.13</string>
+                        <string>{{.MachineInfo.Product}}</string>
+                    </array>
+                </array>
+                <array>
+                    <array>
+                        <!-- uniqueIdentifier (UDID) -->
+                        <string>2.5.4.45</string>
+                        <string>{{.MachineInfo.UDID}}</string>
+                    </array>
+                </array>
+                <array>
+                    <array>
+                        <!-- userPassword (dynamic ACME key) -->
+                        <string>2.5.4.35</string>
+                        <string>{{.ACMEKey}}</string>
+                    </array>
+                </array>
+            </array>
+            <key>DirectoryURL</key>
+            <string>{{.ACMEDirectory}}</string>
+        </dict>
+        <dict>
+            <key>AccessRights</key>
+            <integer>8191</integer>
+            <key>CheckOutWhenRemoved</key>
+            <true/>
+            <key>IdentityCertificateUUID</key>
+            <string>EC34F312-37A4-4150-9C7F-0C881DDA037A</string>
+            <key>PayloadIdentifier</key>
+            <string>com.github.micromdm.nanomdm.mdm</string>
+            <key>PayloadType</key>
+            <string>com.apple.mdm</string>
+            <key>PayloadUUID</key>
+            <string>9918F3B0-DECC-40FB-B20B-39E8A9E1D09B</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>ServerCapabilities</key>
+            <array>
+                <string>com.apple.mdm.per-user-connections</string>
+                <string>com.apple.mdm.bootstraptoken</string>
+                <string>com.apple.mdm.token</string>
+            </array>
+            <key>ServerURL</key>
+            <string>{{.MDMURL}}</string>
+            <key>SignMessage</key>
+            <true/>
+            <key>Topic</key>
+            <string>{{.APNSTopic}}</string>
+        </dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Enrollment Profile</string>
+	<key>PayloadIdentifier</key>
+	<string>com.github.micromdm.nanomdm</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>1736921C-33D1-4E59-93B0-50A74E78856F</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>

@@ -1,0 +1,186 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: enroll
+
+# create persistent volume for file-based database
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: enroll
+  namespace: enroll
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+
+# generate API secrets
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: session-auth-key
+  namespace: enroll
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: session-enc-key
+  namespace: enroll
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enroll
+  namespace: enroll
+  labels:
+    app: enroll
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: enroll
+  template:
+    metadata:
+      labels:
+        app: enroll
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: enroll
+        - name: ca
+          secret:
+            secretName: ca-secret
+            items:
+            - key: ca.crt
+              path: ca.crt
+      containers:
+      - name: enroll
+        image: registry-internal.${INGRESS_HOST}/enrollhandler:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SESSION_AUTH_KEY
+          valueFrom:
+            secretKeyRef:
+              name: session-auth-key
+              key: password
+        - name: SESSION_ENC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: session-enc-key
+              key: password
+        - name: USER_STORAGE
+          value: /data
+
+        # allow requests that don't include signed machine info
+        - name: ALLOW_NO_MACHINEINFO
+          value: "true"
+
+        - name: DEVICE_INVENTORY_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: deviceinventory-api-key
+              key: password
+
+        - name: CA_PATH
+          value: "/etc/enroll/ca.crt"
+        - name: DYNAMIC_API_URL
+          value: "https://dynamicacme.dynamicacme/api/key"
+
+        - name: DYNAMIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dynamicacme-api-key
+              key: password
+
+        - name: MDM_URL
+          value: "https://${INGRESS_HOST}/mdm"
+        - name: APNS_TOPIC
+          value: "com.apple.mgmt.External.Test"
+        - name: ACME_DIRECTORY
+          value: "https://${INGRESS_HOST}/acme/acme/directory"
+
+        - name: REQUIRED_VERSION
+          value: "15.5"
+
+        - name: ANONYMIZE_SERIAL
+          value: "false"
+
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: "ca"
+          mountPath: /etc/enroll
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: enroll
+  namespace: enroll
+spec:
+  selector:
+    app: enroll
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  namespace: enroll
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
+spec:
+  rules:
+  - host: "${INGRESS_HOST}"
+    http:
+      paths:
+      - path: /mdm/enroll
+        pathType: Prefix
+        backend:
+          service:
+            name: enroll
+            port:
+              number: 80
+      - path: /users
+        pathType: Prefix
+        backend:
+          service:
+            name: enroll
+            port:
+              number: 80
+      - path: /register
+        pathType: Prefix
+        backend:
+          service:
+            name: enroll
+            port:
+              number: 80
+      - path: /static
+        pathType: Prefix
+        backend:
+          service:
+            name: enroll
+            port:
+              number: 80
+  tls:
+    - secretName: ingress-tls
+      hosts:
+        - ${INGRESS_HOST}

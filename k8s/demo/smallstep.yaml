@@ -1,0 +1,206 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: smallstep
+
+# create persistent volume for smallstep storage
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: smallstep
+  namespace: smallstep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+
+# create dedicated service account for pod so we can give it permissions
+# to update the intermediate-ca config map in the nanomdm namespace
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: smallstep
+  namespace: smallstep
+
+# generate the provisioner password, which smallstep requires
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: provisioner-password
+  namespace: smallstep
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smallstep
+  namespace: smallstep
+  labels:
+    app: smallstep
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smallstep
+  template:
+    metadata:
+      labels:
+        app: smallstep
+    spec:
+      serviceAccountName: smallstep
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: smallstep
+        - name: ca
+          secret:
+            secretName: ca-secret
+            items:
+            - key: ca.crt
+              path: ca.crt
+            - key: tls.key
+              path: tls.key
+        - name: provisioner-password
+          secret:
+            secretName: provisioner-password
+            items:
+              - key: password
+                path: provisioner-password
+        - name: webhook-key
+          secret:
+            secretName: webhook-key
+            items:
+              - key: password
+                path: webhook-key
+        # create init script to do initial smallstep setup
+        # Note: this is created via kustomize from files/init.sh
+        - name: init
+          configMap:
+            name: init
+            items:
+              - key: init.sh
+                path: init.sh
+        # create the certificate template for ACME certificates
+        # this is mostly the same as the default:
+        # https://github.com/smallstep/crypto/blob/dc8e8d75b2a81f5859b053bc747cccaa2307c330/x509util/templates.go#L231-L240
+        # However, the default includes SANs, and smallstep sets one of these 
+        # values as a critical extension but Go can't parse it.
+        # So we override the template here to remove SANs.
+        # Note: this is created via kustomize from files/template.json
+        - name: template
+          configMap:
+            name: template
+            items:
+              - key: template.json
+                path: template.json
+
+      # run init container to initialize service
+      initContainers:
+      - name: init
+        image: smallstep/step-ca:0.28.3
+        command:
+          - /bin/bash
+          - /init.sh
+        env:
+          - name: STEPPATH
+            value: /data
+        volumeMounts:
+          - name: "data"
+            mountPath: data
+          - name: "ca"
+            mountPath: /etc/smallstep
+          - name: "provisioner-password"
+            mountPath: /etc/smallstep/passwords
+          - name: "template"
+            mountPath: /etc/smallstep/templates
+          - name: "webhook-key"
+            mountPath: /etc/smallstep/keys
+          - name: init
+            mountPath: /init.sh
+            subPath: init.sh
+
+      containers:
+        - name: smallstep
+          image: smallstep/step-ca:0.28.3
+          command:
+            - "/usr/local/bin/step-ca"
+            - "/data/config/ca.json"
+            - "--password-file=/etc/smallstep/passwords/provisioner-password"
+          env:
+            - name: STEPPATH
+              value: /data
+          ports:
+            - containerPort: 443
+          volumeMounts:
+            - name: "data"
+              mountPath: /data
+            - name: "ca"
+              mountPath: /etc/smallstep
+            - name: "provisioner-password"
+              mountPath: /etc/smallstep/passwords
+            - name: "template"
+              mountPath: /etc/smallstep/templates
+
+# create a transport that will trust smallstep's CA
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: smallstep-trust
+  namespace: smallstep
+spec:
+  serverName: smallstep
+  rootCAsSecrets:
+    - ca-secret
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smallstep
+  namespace: smallstep
+  annotations:
+    # tell traefik to use HTTPS protocol and transport we created above to
+    # talk to the smallstep service
+    traefik.ingress.kubernetes.io/service.serversscheme: https
+    traefik.ingress.kubernetes.io/service.serverstransport: smallstep-smallstep-trust@kubernetescrd
+spec:
+  selector:
+    app: smallstep
+  ports:
+    - protocol: TCP
+      port: 443
+      targetPort: 443
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  namespace: smallstep
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: kube-system-https-redirect@kubernetescrd
+spec:
+  rules:
+  - host: "${INGRESS_HOST}"
+    http:
+      paths:
+      - path: /acme/acme/
+        pathType: Prefix
+        backend:
+          service:
+            name: smallstep
+            port:
+              number: 443
+  tls:
+    - secretName: ingress-tls
+      hosts:
+        - ${INGRESS_HOST}

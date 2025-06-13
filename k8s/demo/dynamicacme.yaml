@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dynamicacme
+
+# generate API secrets
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dynamicacme-api-key
+  namespace: dynamicacme
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+    replicator.v1.mittwald.de/replicate-to: "enroll"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-key
+  namespace: dynamicacme
+  annotations:
+    secret-generator.v1.mittwald.de/autogenerate: password
+    replicator.v1.mittwald.de/replicate-to: "smallstep"
+
+# create a certificate signed by our CA for the service
+# We need this as smallstep requires webhooks to have a TLS cert signed by its CA
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: webhook-tls
+  namespace: dynamicacme
+spec:
+  secretName: webhook-tls
+
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  commonName: dynamicacme.dynamicacme
+  dnsNames:
+    - dynamicacme.dynamicacme
+
+  issuerRef:
+    name: ca-issuer
+    kind: ClusterIssuer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dynamicacme
+  namespace: dynamicacme
+  labels:
+    app: dynamicacme
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dynamicacme
+  template:
+    metadata:
+      labels:
+        app: dynamicacme
+    spec:
+      volumes:
+        - name: tls
+          secret:
+            secretName: webhook-tls
+            items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
+      containers:
+      - name: dynamicacme
+        image: registry-internal.${INGRESS_HOST}/dynamicacme:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 443
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dynamicacme-api-key
+              key: password
+        - name: WEBHOOK_KEY
+          valueFrom:
+            secretKeyRef:
+              name: webhook-key
+              key: password
+        - name: DEVICE_INVENTORY_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: deviceinventory-api-key
+              key: password
+        - name: TLS_CERT_PATH
+          value: "/etc/dynamicacme/tls.crt"
+        - name: TLS_KEY_PATH
+          value: "/etc/dynamicacme/tls.key"
+        volumeMounts:
+        - name: "tls"
+          mountPath: /etc/dynamicacme
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dynamicacme
+  namespace: dynamicacme
+spec:
+  selector:
+    app: dynamicacme
+  ports:
+    - protocol: TCP
+      port: 443
+      targetPort: 443

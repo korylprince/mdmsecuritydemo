@@ -1,0 +1,49 @@
+# create an issuer for let's encrypt
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  namespace: cert-manager
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: traefik
+
+# get HTTPS cert from let's encrypt
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ingress-tls
+  namespace: cert-manager
+spec:
+  secretName: ingress-tls
+
+  secretTemplate:
+    annotations:
+      replicator.v1.mittwald.de/replicate-to: "dashboard,enroll,nanodep,nanomdm,smallstep,webview"
+
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  commonName: ${INGRESS_HOST}
+  dnsNames:
+    - ${INGRESS_HOST}
+    - registry.${INGRESS_HOST}
+    - registry-internal.${INGRESS_HOST}
+    - dashboard.${INGRESS_HOST}
+
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer

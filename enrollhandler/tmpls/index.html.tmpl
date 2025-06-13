@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <title>MDM Enrollment</title>
+        <meta charset='utf-8'>
+        <link rel="stylesheet" href="/static/style.css">
+    </head>
+    <body>
+        <div class="center-container">
+            <img src="/static/logo.png" alt="Logo" class="logo" />
+            {{- if or .MachineInfo.Serial .MachineInfo.Product .MachineInfo.OSVersion }}
+            <div id="machine-info">
+                <div><strong>Serial Number:</strong> {{.MachineInfo.Serial}}</div>
+                <div><strong>Product:</strong> {{.MachineInfo.Product}}</div>
+                <div><strong>OS Version:</strong> {{.MachineInfo.OSVersion}}</div>
+            </div>
+            {{- end }}
+            <div id="login-form-container">
+                <h2>Sign in to enroll your device</h2>
+                <form id="login-form">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" name="username" required>
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" name="password" required>
+                    <button type="submit" class="btn">Login</button>
+                    <button type="button" id="clear-login" class="btn btn-secondary">Clear</button>
+                </form>
+            </div>
+        </div>
+        <script src="/static/utils.js"></script>
+        <script src="/static/main.js"></script>
+    </body>
+</html>

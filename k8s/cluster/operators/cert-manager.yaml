@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+
+# install cert-manager to manage certs
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: cert-manager
+  namespace: kube-system
+spec:
+  chart: https://charts.jetstack.io/charts/cert-manager-v1.17.2.tgz
+  targetNamespace: cert-manager
+  set:
+    crds.enabled: "true"
