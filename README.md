@@ -1,6 +1,6 @@
 # About
 
-This repo is a companion to the "Securing macOS Enrollments" talk @korylprince and @vdesouza gave at [MDOYVR](https://mdoyvr.com/) 2025.
+This repo is a companion to the "Securing macOS Enrollments" talk [@korylprince](https://github.com/korylprince/) and [@vdesouza](https://github.com/vdesouza/) gave at [MDOYVR](https://mdoyvr.com/) 2025.
 
 - Video (TBD)
 - [Presentation](https://docs.google.com/presentation/d/17gCWyAzPvc7kGWBTa_FeRkfMMZ9nYaBVJDARCzSk7sw/edit?usp=sharing)
